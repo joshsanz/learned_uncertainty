@@ -20,21 +20,54 @@ class ControlModel(object):
         pass
 
 
-class CovarianceModel(ControlModel):
+class NormModel(ControlModel):
 
-    def __init__(self, num_assets):
+    def __init__(self, num_assets, gamma=1.0, regularization=1):
         super(ControlModel, CovarianceModel).__init__(self)
         self.num_assets = num_assets
+        self.gamma = gamma
+        self.regularization = regularization
         self.x = None
         self.problem = None
         self._optima = None
 
-    def run(self, data, gamma=1.0):
+    def run(self, data):
         mu, sigma = data
 
         self.x = cvx.Variable(self.num_assets)
 
-        objective = self.x.T*mu - gamma*cvx.quad_form(self.x, sigma)
+        objective = self.x.T*mu - self.gamma*cvx.norm(self.x, self.regularization)
+
+        self.problem = cvx.Problem(cvx.Maximize(objective),
+                           [
+                               cvx.norm(self.x, 1) <= 1,
+                               self.x >= 0
+                           ])
+        self._optima = self.problem.solve()
+
+    def optima(self):
+        return self._optima
+
+    def variables(self):
+        return self.x.value.flatten()
+
+
+class CovarianceModel(ControlModel):
+
+    def __init__(self, num_assets, gamma=1.0):
+        super(ControlModel, CovarianceModel).__init__(self)
+        self.num_assets = num_assets
+        self.gamma = gamma
+        self.x = None
+        self.problem = None
+        self._optima = None
+
+    def run(self, data):
+        mu, sigma = data
+
+        self.x = cvx.Variable(self.num_assets)
+
+        objective = self.x.T*mu - self.gamma*cvx.quad_form(self.x, sigma)
 
         self.problem = cvx.Problem(cvx.Maximize(objective),
                            [

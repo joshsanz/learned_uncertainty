@@ -11,7 +11,7 @@ def error(predicted_return, true_return):
 
 def get_data(num_samples, num_assets):
     true_asset_value = np.array([0.9, 1.0, 1.1])
-    asset_covariance = np.diag([0.3, 0.2, 0.1])
+    asset_covariance = np.diag([0.3, 0.9, 0.1])
     sampler = GaussianNoise()
     data = np.zeros(shape=(num_samples, num_assets))
     for t in range(num_samples):
@@ -35,11 +35,12 @@ def get_returns(data, investment_strategies, asset_predictions):
     return predicted_return, true_return
 
 
-def run_gaussian_mean_variance(data, num_samples, num_assets):
+def run_gaussian_unbiased_norm(data, num_samples, num_assets):
     gamma = 1.0
+    norm = 2
 
     prediction_model = UnbiasEstimator()
-    cov_model = CovarianceModel(num_assets=num_assets)
+    cov_model = NormModel(num_assets=num_assets, gamma=gamma, regularization=1)
 
     predicted_asset_values = np.zeros(shape=(num_samples, num_assets))
     investment_strategies = np.zeros(shape=(num_samples, num_assets))
@@ -51,7 +52,30 @@ def run_gaussian_mean_variance(data, num_samples, num_assets):
         predicted_asset_values[t] = predicted_asset_value
 
         control_input = (predicted_asset_value, predicted_asset_variance)
-        cov_model.run(control_input, gamma)
+        cov_model.run(control_input)
+        investment_strategy = cov_model.variables()
+        investment_strategies[t] = investment_strategy
+
+    return predicted_asset_values, investment_strategies
+
+
+def run_gaussian_unbiased_covar(data, num_samples, num_assets):
+    gamma = 1.0
+
+    prediction_model = UnbiasEstimator()
+    cov_model = CovarianceModel(num_assets=num_assets, gamma=gamma)
+
+    predicted_asset_values = np.zeros(shape=(num_samples, num_assets))
+    investment_strategies = np.zeros(shape=(num_samples, num_assets))
+    for t in range(num_samples):
+        if t <= 2:
+            continue
+        past_data = data[:t]
+        predicted_asset_value, predicted_asset_variance = prediction_model.predict(past_data)
+        predicted_asset_values[t] = predicted_asset_value
+
+        control_input = (predicted_asset_value, predicted_asset_variance)
+        cov_model.run(control_input)
         investment_strategy = cov_model.variables()
         investment_strategies[t] = investment_strategy
 
@@ -65,7 +89,8 @@ def run_experiments():
 
     # Add experiments to run here.
     experiments = [
-        ("gaussian_mean_variance", run_gaussian_mean_variance),
+        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar),
+        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm),
     ]
 
     for name, experiment_func in experiments:
@@ -80,8 +105,8 @@ def run_experiments():
         plt.plot(np.arange(3, num_samples), true_return[3:], label=name + ' true return')
         # In final plots, predicted return may not be relevant.
         plt.plot(np.arange(3, num_samples), predicted_return[3:], label=name + ' predicted return')
-        plt.legend()
-        plt.show()
+    plt.legend()
+    plt.show()
 
 
 if __name__ == "__main__":
