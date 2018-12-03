@@ -26,6 +26,8 @@ class UnbiasEstimator(PredictionModel):
 
     def predict(self, samples, assume_diag=True):
         covar = self.sample_covariance(samples)
+        if covar.shape == ():
+            covar = covar.reshape(1, 1)
         if assume_diag:
             covar = np.diag(np.diag(covar))
         return self.sample_mean(samples), covar

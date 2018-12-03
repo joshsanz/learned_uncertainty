@@ -25,12 +25,14 @@ class CovarianceModel(ControlModel):
     def __init__(self, num_assets):
         super(ControlModel, CovarianceModel).__init__(self)
         self.num_assets = num_assets
-        self.x = cvx.Variable(self.num_assets)
+        self.x = None
         self.problem = None
         self._optima = None
 
     def run(self, data, gamma=1.0):
         mu, sigma = data
+
+        self.x = cvx.Variable(self.num_assets)
 
         objective = self.x.T*mu - gamma*cvx.quad_form(self.x, sigma)
 
