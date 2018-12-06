@@ -11,7 +11,9 @@ class DataModel(object):
 
 
 class GaussianNoise(DataModel):
-
+    """
+    Samples are drawn from a multivariate normal distribution with given means and covariance
+    """
     def __init__(self, seed=1):
         self.seed = seed
         self.r = np.random.RandomState(seed=self.seed)

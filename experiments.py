@@ -1,4 +1,8 @@
+import matplotlib
+matplotlib.use('tkagg')
 from matplotlib import pyplot as plt
+
+import time
 
 from data_models import *
 from prediction_models import *
@@ -9,14 +13,20 @@ def error(predicted_return, true_return):
     return (predicted_return - true_return)
 
 
-def get_gaussian_data(num_samples, true_asset_value, asset_covariance):
+def get_gaussian_data(num_samples, true_asset_value, asset_covariance, seed=1):
     num_assets = asset_covariance.shape[0]
-    sampler = GaussianNoise()
+    sampler = GaussianNoise(seed)
     data = np.zeros(shape=(num_samples, num_assets))
     for t in range(num_samples):
         sampler_input = (true_asset_value, asset_covariance)
         data[t] = sampler.sample(sampler_input)
     return data
+
+
+def get_wiener_data(num_samples, true_asset_value, asset_covariance, seed=1):
+    num_assets = asset_covariance.shape[0]
+    steps = get_gaussian_data(num_samples, np.zeros((num_assets,)), asset_covariance, seed)
+    return np.cumsum(steps, axis=0) + true_asset_value
 
 
 def get_returns(data, investment_strategies, asset_predictions):
@@ -81,22 +91,31 @@ def run_gaussian_unbiased_covar(data, num_samples, num_assets, pred_params, cont
     return predicted_asset_values, investment_strategies
 
 
-def run_simple_gaussian_experiments():
+def run_simple_gaussian_experiments(truth, plot=False, seed=1):
     num_samples = 100
-    true_asset_value = np.array([0.0, 1.0, 1.1])
-    asset_covariance = np.diag( [1.0, 1.0, 0.1])
-    data = get_gaussian_data(num_samples, true_asset_value, asset_covariance)
+    true_asset_value = truth['asset_value']
+    asset_covariance = truth['asset_covariance']
+    gamma = truth['gamma']
+    data = get_gaussian_data(num_samples, true_asset_value, asset_covariance, seed)
     num_assets = data.shape[1]
+
+    plt.plot(data, label='Asset Values')
+    plt.legend()
+    plt.title('Input Data')
+    plt.show()
 
     # Add experiments to run here.
     experiments = [
-        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar, None, {"gamma": 1}),
-        ("gaussian_unbiased_l1", run_gaussian_unbiased_norm, None, {"gamma": 1, "regularization": 1}),
-        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm, None, {"gamma": 1, "regularization": 2}),
+        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar, None, {"gamma": gamma}),
+        ("gaussian_unbiased_l1", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 1}),
+        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 2}),
     ]
 
     bar_plot_mean = []
     bar_plot_std = []
+
+    results = {}
+    results['true_values'] = data
     for name, experiment_func, pred_params, control_params in experiments:
         predicted_asset_values, investment_strategies = experiment_func(data,
                                                                         num_samples,
@@ -104,6 +123,11 @@ def run_simple_gaussian_experiments():
                                                                         pred_params,
                                                                         control_params)
         predicted_return, true_return = get_returns(data, investment_strategies, predicted_asset_values)
+        results[name] = {}
+        results[name]['predicted_return'] = predicted_return
+        results[name]['strategies'] = investment_strategies
+        results[name]['predicted_values'] = predicted_asset_values
+        results[name]['true_return'] = true_return
         print(name, np.sum(true_return))
         bar_plot_mean.append(np.mean(true_return))
         bar_plot_std.append(np.std(true_return))
@@ -111,16 +135,154 @@ def run_simple_gaussian_experiments():
         # window = 10
         # for i in range(0, num_samples-window, window):
         #     print(name, np.mean(all_error[i:i + window]))
-        # We really just care about how well the investment strategies actually do,
-        # which is given by true_return.
-        plt.plot(np.arange(3, num_samples), true_return[3:], label=name + ' true return', alpha=0.25)
-        # In final plots, predicted return may not be relevant.
-        # plt.plot(np.arange(3, num_samples), predicted_return[3:], label=name + ' predicted return')
+        if plot:
+            # We really just care about how well the investment strategies actually do,
+            # which is given by true_return.
+            plt.plot(np.arange(3, num_samples), true_return[3:], label=name + ' true return', alpha=0.33)
+            # In final plots, predicted return may not be relevant.
+            plt.plot(np.arange(3, num_samples), predicted_return[3:], label=name + ' predicted return')
+    if plot:
+        plt.legend()
+        plt.show()
+
+        plt.bar(np.arange(len(experiments)), height=bar_plot_mean, yerr=bar_plot_std)
+        plt.show()
+
+    return results
+
+
+def run_ltv_gaussian_experiments(truth, plot=False, seed=1):
+    num_samples = 100
+    true_asset_v0 = truth['asset_value']
+    true_asset_delta = truth['asset_delta']
+    asset_covariance = truth['asset_covariance']
+    gamma = truth['gamma']
+    true_asset_value = true_asset_v0 + (true_asset_delta.T @ np.arange(0,num_samples).reshape(-1,1).T).T
+    data = get_gaussian_data(num_samples, np.zeros((3,)), asset_covariance, seed) + true_asset_value
+    num_assets = data.shape[1]
+
+    plt.plot(data, label='Asset Values')
     plt.legend()
+    plt.title('Input Data')
     plt.show()
 
-    plt.bar(np.arange(len(experiments)), height=bar_plot_mean, yerr=bar_plot_std)
+    # Add experiments to run here.
+    experiments = [
+        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar, None, {"gamma": gamma}),
+        ("gaussian_unbiased_l1", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 1}),
+        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 2}),
+    ]
+
+    bar_plot_mean = []
+    bar_plot_std = []
+
+    results = {}
+    results['true_values'] = data
+    for name, experiment_func, pred_params, control_params in experiments:
+        predicted_asset_values, investment_strategies = experiment_func(data,
+                                                                        num_samples,
+                                                                        num_assets,
+                                                                        pred_params,
+                                                                        control_params)
+        predicted_return, true_return = get_returns(data, investment_strategies, predicted_asset_values)
+        results[name] = {}
+        results[name]['predicted_return'] = predicted_return
+        results[name]['strategies'] = investment_strategies
+        results[name]['predicted_values'] = predicted_asset_values
+        results[name]['true_return'] = true_return
+        print(name, np.sum(true_return))
+        bar_plot_mean.append(np.mean(true_return))
+        bar_plot_std.append(np.std(true_return))
+        # all_error = error(predicted_return, true_return)
+        # window = 10
+        # for i in range(0, num_samples-window, window):
+        #     print(name, np.mean(all_error[i:i + window]))
+        if plot:
+            # We really just care about how well the investment strategies actually do,
+            # which is given by true_return.
+            plt.plot(np.arange(3, num_samples), true_return[3:], label=name + ' true return', alpha=0.33)
+            # In final plots, predicted return may not be relevant.
+            plt.plot(np.arange(3, num_samples), predicted_return[3:], label=name + ' predicted return')
+    if plot:
+        plt.legend()
+        plt.show()
+
+        plt.bar(np.arange(len(experiments)), height=bar_plot_mean, yerr=bar_plot_std)
+        plt.show()
+
+    return results
+
+
+def run_wiener_experiments(truth, plot=False, seed=1):
+    num_samples = 100
+    true_asset_v0 = truth['asset_value']
+    asset_covariance = truth['asset_covariance']
+    gamma = truth['gamma']
+    data = get_wiener_data(num_samples, true_asset_v0, asset_covariance, seed)
+    num_assets = data.shape[1]
+
+    plt.plot(data, label='Asset Values')
+    plt.legend()
+    plt.title('Input Data')
     plt.show()
+
+    # Add experiments to run here.
+    experiments = [
+        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar, None, {"gamma": gamma}),
+        ("gaussian_unbiased_l1", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 1}),
+        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 2}),
+    ]
+
+    bar_plot_mean = []
+    bar_plot_std = []
+    results = {}
+    results['true_values'] = data
+    for name, experiment_func, pred_params, control_params in experiments:
+        predicted_asset_values, investment_strategies = experiment_func(data,
+                                                                        num_samples,
+                                                                        num_assets,
+                                                                        pred_params,
+                                                                        control_params)
+        predicted_return, true_return = get_returns(data, investment_strategies, predicted_asset_values)
+        results[name] = {}
+        results[name]['predicted_return'] = predicted_return
+        results[name]['strategies'] = investment_strategies
+        results[name]['predicted_values'] = predicted_asset_values
+        results[name]['true_return'] = true_return
+        print(name, np.sum(true_return))
+        bar_plot_mean.append(np.mean(true_return))
+        bar_plot_std.append(np.std(true_return))
+        # all_error = error(predicted_return, true_return)
+        # window = 10
+        # for i in range(0, num_samples-window, window):
+        #     print(name, np.mean(all_error[i:i + window]))
+        if plot:
+            # We really just care about how well the investment strategies actually do,
+            # which is given by true_return.
+            plt.plot(np.arange(3, num_samples), true_return[3:], label=name + ' true return', alpha=0.33)
+            # In final plots, predicted return may not be relevant.
+            plt.plot(np.arange(3, num_samples), predicted_return[3:], label=name + ' predicted return')
+    if plot:
+        plt.legend()
+        plt.show()
+
+        plt.bar(np.arange(len(experiments)), height=bar_plot_mean, yerr=bar_plot_std)
+        plt.show()
+
+    return results
+
 
 if __name__ == "__main__":
-    run_simple_gaussian_experiments()
+    run_simple_gaussian_experiments(truth={'asset_value': np.array([0.8, 1.0, 1.1]),
+                                           'asset_covariance': np.diag( [0.02, 0.01, 0.03]),
+                                           'gamma': 1},
+                                    plot=True, seed=int(time.time()))
+    run_ltv_gaussian_experiments(truth={'asset_value': np.array([0.9, 1.2, 1.0]),
+                                        'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
+                                        'asset_delta': np.array([[0.002, -0.003, 0.001]]),
+                                        'gamma': 1},
+                                 plot=True, seed=int(time.time()))
+    run_wiener_experiments(truth={'asset_value': np.array([0.9, 1.2, 1.0]),
+                                  'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
+                                  'gamma': 1},
+                           plot=True, seed=int(time.time()))
