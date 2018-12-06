@@ -1,6 +1,9 @@
 import pickle
 import numpy as np
 
+from os import listdir
+from os.path import isfile, join
+
 import matplotlib
 matplotlib.use('tkagg')
 from matplotlib import pyplot as plt
@@ -48,22 +51,77 @@ def plot_residuals(runs, model_name):
     plt.show()
 
 
+def plot_gammas(files, data_model):
+    models = ['gaussian_unbiased_covar',
+                'gaussian_unbiased_l1',
+                'gaussian_unbiased_l2',
+                'gaussian_windowed_covar',
+                'gaussian_windowed_l1',
+                'gaussian_windowed_l2']
+    returns = {}
+    for f in files:
+        igamma = f.find("gamma")
+        gamma = float(f[igamma+5:-4])
+        with open("gamma_runs/" + f, 'rb') as fh:
+            data = pickle.load(fh)
+        returns[gamma] = {}
+        returns[gamma]['gaussian_unbiased_covar'] = 0
+        returns[gamma]['gaussian_unbiased_l1'] = 0
+        returns[gamma]['gaussian_unbiased_l2'] = 0
+        returns[gamma]['gaussian_windowed_covar'] = 0
+        returns[gamma]['gaussian_windowed_l1'] = 0
+        returns[gamma]['gaussian_windowed_l2'] = 0
+        for r in data:
+            returns[gamma]['gaussian_unbiased_covar'] += np.mean(r['gaussian_unbiased_covar']['true_return'])
+            returns[gamma]['gaussian_unbiased_l1'] += np.mean(r['gaussian_unbiased_l1']['true_return'])
+            returns[gamma]['gaussian_unbiased_l2'] += np.mean(r['gaussian_unbiased_l2']['true_return'])
+            returns[gamma]['gaussian_windowed_covar'] += np.mean(r['gaussian_windowed_covar']['true_return'])
+            returns[gamma]['gaussian_windowed_l1'] += np.mean(r['gaussian_windowed_l1']['true_return'])
+            returns[gamma]['gaussian_windowed_l2'] += np.mean(r['gaussian_windowed_l2']['true_return'])
+    gammas = list(returns.keys())
+    gammas.sort()
+    for m in models:
+        mreturns = [returns[g][m] for g in gammas]
+        plt.plot(gammas, mreturns, label=m, alpha=0.5)
+    plt.xlabel("Regularization Parameter")
+    plt.ylabel("Mean Return")
+    plt.title("Regularization Parameter versus Return, {}".format(data_model))
+    plt.legend()
+    plt.savefig("gammma_vs_return-{}.png".format(data_model))
+    plt.show()
+
+
 def plot_runs(runs, model_name):
     plot_residuals(runs, model_name)
     # plot_gamma_sweep(runs, model_name)
 
 
 def main():
-    with open("base_run/simple_gauss.pkl", 'rb') as f:
-        simple_gauss = pickle.load(f)
-    plot_residuals(simple_gauss, 'Gaussian')
-    with open("base_run/ltv_gauss.pkl", 'rb') as f:
-        ltv_gauss = pickle.load(f)
-    plot_residuals(ltv_gauss, 'Trending-Gaussian')
-    with open("base_run/wiener.pkl", 'rb') as f:
-        wiener = pickle.load(f)
-    plot_residuals(wiener, 'Wiener-Process')
+    # with open("base_run/simple_gauss.pkl", 'rb') as f:
+    #     simple_gauss = pickle.load(f)
+    # plot_residuals(simple_gauss, 'Gaussian')
+    # with open("base_run/ltv_gauss.pkl", 'rb') as f:
+    #     ltv_gauss = pickle.load(f)
+    # plot_residuals(ltv_gauss, 'Trending-Gaussian')
+    # with open("base_run/wiener.pkl", 'rb') as f:
+    #     wiener = pickle.load(f)
+    # plot_residuals(wiener, 'Wiener-Process')
 
+    mypath = "gamma_runs"
+    onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+    simple = []
+    ltv = []
+    wiener = []
+    for f in onlyfiles:
+        if "ltv" in f:
+            ltv.append(f)
+        elif "wiener" in f:
+            wiener.append(f)
+        else:
+            simple.append(f)
+    plot_gammas(ltv, "Trending-Gaussian")
+    plot_gammas(wiener, "Wiener-Process")
+    plot_gammas(simple, "Gaussian")
 
 if __name__ == "__main__":
     main()

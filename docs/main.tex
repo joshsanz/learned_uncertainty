@@ -91,8 +91,8 @@
 \frametitle{Portfolio Optimization Problem}
 
     \begin{itemize}
-    \item Empirical study comparing optimization models for investment strategies
-    \item We formulate the problem in various ways
+    \item Empirical study comparing optimization models for investment strategies.
+    \item We formulate the problem as three components
         \begin{enumerate}
         \item Asset value distribution
 
@@ -158,7 +158,7 @@
 
     \begin{center}
         Result from dualizing a norm-ball uncertainty set on $c$ \\
-        \[ c \in \mathcal{C}\left\{ c : \|\hat{c} - c\|_p \leq \lambda \right\} \]
+        \[ c \in \mathcal{U}=\left\{ c : \|\hat{c} - c\|_p \leq \lambda \right\} \]
     \end{center}
 
 \end{frame}
@@ -177,7 +177,7 @@
 
     \begin{center}
         Results from dualizing a weighted norm-ball uncertainty set on $c$ \\
-        \[ c \in \mathcal{C}\left\{ c : (\hat{c} - c)^T \Sigma(\hat{c} - c) \leq \lambda \right\} \]
+        \[ c \in \mathcal{U}=\left\{ c : (\hat{c} - c)^T \Sigma^{-1}(\hat{c} - c) \leq \lambda \right\} \]
     \end{center}
 
 \end{frame}
@@ -185,7 +185,7 @@
 \begin{frame}
 \frametitle{Experimental Results}
 
-\begin{block}{Gaussian Noise}
+\begin{block}{Gaussian Noise Return Residuals}
     \includegraphics[width=\linewidth]{mean_return_residual-Gaussian_model.png}
 \end{block}
 
@@ -194,7 +194,7 @@
 \begin{frame}
     \frametitle{Experimental Results}
 
-    \begin{block}{Linear Trending Gaussian}
+    \begin{block}{Linear Trending Gaussian Return Residuals}
         \includegraphics[width=\linewidth]{mean_return_residual-Trending-Gaussian_model.png}
     \end{block}
 
@@ -203,15 +203,51 @@
 \begin{frame}
     \frametitle{Experimental Results}
 
-    \begin{block}{Wiener Process}
+    \begin{block}{Wiener Process Return Residuals}
         \includegraphics[width=\linewidth]{mean_return_residual-Wiener-Process_model.png}
     \end{block}
 
 \end{frame}
 
 \begin{frame}
-    \frametitle{Additional Asset Value Distribution Models}
+    \frametitle{Experimental Results}
 
+    \begin{block}{Gaussian Noise Regularization Parameter vs Return}
+        \includegraphics[width=\linewidth]{gammma_vs_return-Gaussian.png}
+    \end{block}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Experimental Results}
+
+    \begin{block}{Linear Trending Gaussian Regularizatio Parameter vs Return}
+        \includegraphics[width=\linewidth]{gammma_vs_return-Trending-Gaussian.png}
+    \end{block}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Experimental Results}
+
+    \begin{block}{Wiener Process Regularizatio Parameter vs Return}
+        \includegraphics[width=\linewidth]{gammma_vs_return-Wiener-Process.png}
+    \end{block}
+
+\end{frame}
+
+
+
+\begin{frame}
+    \Huge{\centerline{Next Steps}}
+\end{frame}
+
+
+\begin{frame}
+    \frametitle{Additional Asset Value Distribution Models}
+    \begin{enumerate}
+        \item Adversarial Noise
+    \end{enumerate}
 \end{frame}
 
 \begin{frame}
