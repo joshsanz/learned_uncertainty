@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 
 class DataModel(object):
@@ -21,6 +22,27 @@ class GaussianNoise(DataModel):
     def sample(self, data):
         mu, sigma = data
         return self.r.multivariate_normal(mu, sigma)
+
+
+class RealData(object):
+    """
+    Real data pulled from the web. 8 tech assets.
+    """
+
+    def sample(self):
+        with open("./alpha_vantage_data/data/real_data.pickle", "rb") as fh:
+            data = pickle.load(fh)
+        return data
+
+    def labels(self):
+        with open("./alpha_vantage_data/data/real_data_symbols.pickle", "rb") as fh:
+            data_labels = pickle.load(fh)
+        return data_labels
+
+    def dates(self):
+        with open("./alpha_vantage_data/data/real_data_dates.pickle", "rb") as fh:
+            data_dates = pickle.load(fh)
+        return data_dates
 
 
 if __name__ == "__main__":

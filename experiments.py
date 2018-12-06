@@ -29,6 +29,11 @@ def get_wiener_data(num_samples, true_asset_value, asset_covariance, seed=1):
     return np.cumsum(steps, axis=0) + true_asset_value
 
 
+def get_real_data():
+    sampler = RealData()
+    return sampler.labels(), sampler.dates(), sampler.sample()
+
+
 def get_returns(data, investment_strategies, asset_predictions):
     num_samples = investment_strategies.shape[0]
     predicted_return = np.zeros(shape=(num_samples,))
@@ -99,18 +104,28 @@ def run_gaussian_covar(data, num_samples, num_assets, pred_params, control_param
     return predicted_asset_values, investment_strategies
 
 
-def run_simple_gaussian_experiments(params, plot=False, seed=1):
-    num_samples = 100
-    true_asset_value = params['asset_value']
-    asset_covariance = params['asset_covariance']
+def run_simple_gaussian_experiments(params, real_data=False, plot=False, seed=1):
+    if not real_data:
+        num_samples = 100
+        true_asset_value = params['asset_value']
+        asset_covariance = params['asset_covariance']
+        data = get_gaussian_data(num_samples, true_asset_value, asset_covariance, seed)
+        data = np.clip(data, 1e-3, None)
+    else:
+        data_labels, data_dates, data = get_real_data()
+        print("date range:", data_dates[0][0], "-", data_dates[0][-1])
+        num_samples = data.shape[0]
+
     gamma = params['gamma']
     window = params['window']
-    data = get_gaussian_data(num_samples, true_asset_value, asset_covariance, seed)
-    data = np.clip(data, 1e-3, None)
     num_assets = data.shape[1]
 
     if plot:
-        plt.plot(data, label='Asset Values')
+        if real_data:
+            for i in range(num_assets):
+                plt.plot(data.T[i], label=data_labels[i])
+        else:
+            plt.plot(data, label='Asset Values')
         plt.legend()
         plt.title('Input Data')
         plt.show()
@@ -152,9 +167,9 @@ def run_simple_gaussian_experiments(params, plot=False, seed=1):
         if plot:
             # We really just care about how well the investment strategies actually do,
             # which is given by true_return.
-            plt.plot(np.arange(3, num_samples), true_return[3:], label=name + ' true return', alpha=0.33)
+            plt.plot(np.arange(3, num_samples), true_return[3:], label=name + ' true return', alpha=0.5)
             # In final plots, predicted return may not be relevant.
-            plt.plot(np.arange(3, num_samples), predicted_return[3:], label=name + ' predicted return')
+            # plt.plot(np.arange(3, num_samples), predicted_return[3:], label=name + ' predicted return')
     if plot:
         plt.legend()
         plt.show()
@@ -299,19 +314,23 @@ def run_wiener_experiments(params, plot=False, seed=1):
 
 
 if __name__ == "__main__":
+    run_simple_gaussian_experiments(params={'gamma': 1,
+                                            'window': 10},
+                                    real_data=True,
+                                    plot=True, seed=int(time.time()))
     run_simple_gaussian_experiments(params={'asset_value': np.array([0.8, 1.0, 1.1]),
-                                           'asset_covariance': np.diag([0.02, 0.01, 0.03]),
-                                           'gamma': 1,
-                                           'window': 10},
+                                            'asset_covariance': np.diag([0.02, 0.01, 0.03]),
+                                            'gamma': 1,
+                                            'window': 10},
                                     plot=True, seed=int(time.time()))
     run_ltv_gaussian_experiments(params={'asset_value': np.array([0.9, 1.2, 1.0]),
-                                        'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
-                                        'asset_delta': np.array([[0.002, -0.003, 0.001]]),
-                                        'gamma': 1,
-                                        'window': 10},
+                                         'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
+                                         'asset_delta': np.array([[0.002, -0.003, 0.001]]),
+                                         'gamma': 1,
+                                         'window': 10},
                                  plot=True, seed=int(time.time()))
     run_wiener_experiments(params={'asset_value': np.array([0.9, 1.2, 1.0]),
-                                  'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
-                                  'gamma': 1,
-                                  'window': 10},
+                                   'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
+                                   'gamma': 1,
+                                   'window': 10},
                            plot=True, seed=int(time.time()))
