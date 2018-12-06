@@ -86,69 +86,126 @@
 \begin{frame}
 \frametitle{Portfolio Optimization Problem}
 
-\begin{itemize}
-  \item Empirical study comparing optimization models for investment strategies.
-  \item We formulate the problem in various ways
-    \begin{enumerate}
-      \item Asset value distribution.
+    \begin{itemize}
+    \item Empirical study comparing optimization models for investment strategies.
+    \item We formulate the problem in various ways
+        \begin{enumerate}
+        \item Asset value distribution.
 
-      \item Asset value predictor. 
+        \item Asset value predictor.
 
-      \item Investment strategy controller.
-    \end{enumerate}
-\end{itemize}
-
+        \item Investment strategy controller.
+        \end{enumerate}
+    \end{itemize}
 
 \end{frame}
 
 \begin{frame}
 \frametitle{Asset Value Distributions}
 
+
 \end{frame}
 
 \begin{frame}
 \frametitle{Asset Value Predictors}
 
-$c_t \in \mathbb{R}^n$ is the asset value at time $t$. 
+    $c_t \in \mathbb{R}^n$ is the asset value at time $t$.
 
-\begin{block}{Unbiased Estimator of Gaussians}
-\[ \hat{\mu} = \frac{1}{m} \sum_{i=1}^{m} c_i \hspace{1cm} \hat{\Sigma}_{jk} = \frac{1}{m-1} \sum_{i=1}^{m} (c_{ij} - \hat{\mu}_j)(c_{ik} - \hat{\mu}_k). \]
-\end{block}
+    \begin{block}{Unbiased Estimator of Gaussians}
+    \[ \hat{\mu} = \frac{1}{m} \sum_{i=1}^{m} c_i \hspace{1cm} \hat{\Sigma}_{jk} = \frac{1}{m-1} \sum_{i=1}^{m} (c_{ij} - \hat{\mu}_j)(c_{ik} - \hat{\mu}_k). \]
+    \end{block}
 
-\begin{block}{Autoregressive Model}
-\[ c_t = \sum_{i=1}^p \theta_i c_{t-i} + \epsilon_t. \]
-\end{block}
+    \begin{block}{Gaussian Estimator with Time Horizon $T$}
+    \[ \hat{\mu} = \frac{1}{T} \sum_{i=m-T}^{m} c_i \hspace{1cm} \hat{\Sigma}_{jk} = \frac{1}{T-1} \sum_{i=m-T}^{m} (c_{ij} - \hat{\mu}_j)(c_{ik} - \hat{\mu}_k). \]
+    \end{block}
+
+    \begin{block}{Autoregressive Model}
+    \[ c_t = \sum_{i=1}^p \theta_i c_{t-i} + \epsilon_t. \]
+    \end{block}
 
 \end{frame}
 
 \begin{frame}
 \frametitle{Investment Strategy Controllers}
 
-\begin{block}{L1 and L2 Regularization}
-\begin{align*}
-    \max_{w\in\mathbb{R}^n}{} & \hat{c}^T w - \lambda \Vert w \Vert_L \\
-    \mbox{s.t.} & \sum_{i=0}^{n} w_i \leq 1 \\
-    & w_i \geq 0, i=1,...,n
-\end{align*}
-\end{block}
+    \begin{block}{L1 and L2 Regularization}
+    \begin{align*}
+        \max_{w\in\mathbb{R}^n}{} & \hat{c}^T w - \lambda \Vert w \Vert_L \\
+        \mbox{s.t.} & \sum_{i=0}^{n} w_i \leq 1 \\
+        & w_i \geq 0, i=1,...,n
+    \end{align*}
+    \end{block}
 
-\begin{block}{Weighted Regularization}
-\begin{align*}
-    \max_{w\in\mathbb{R}^n}{} & \hat{c}^T w - \lambda (w^T \Sigma w) \\
-    \mbox{s.t.} & \sum_{i=0}^{n} w_i \leq 1 \\
-    & w_i \geq 0, i=1,...,n
-\end{align*}
-\end{block}
+    \begin{center}
+        Result from dualizing a norm-ball uncertainty set on $c$ \\
+        \[ c \in \mathcal{C}\left\{ c : \|\hat{c} - c\|_p \leq \lambda \right\} \]
+    \end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Investment Strategy Controllers}
+
+    \begin{block}{Weighted Regularization}
+    \begin{align*}
+        \max_{w\in\mathbb{R}^n}{} & \hat{c}^T w - \lambda (w^T \Sigma w) \\
+        \mbox{s.t.} & \sum_{i=0}^{n} w_i \leq 1 \\
+        & w_i \geq 0, i=1,...,n
+    \end{align*}
+    \end{block}
+
+
+    \begin{center}
+        Results from dualizing a weighted norm-ball uncertainty set on $c$ \\
+        \[ c \in \mathcal{C}\left\{ c : (\hat{c} - c)^T \Sigma(\hat{c} - c) \leq \lambda \right\} \]
+    \end{center}
 
 \end{frame}
 
 \begin{frame}
 \frametitle{Experimental Results}
 
+\begin{block}{Gaussian Noise}
+    \includegraphics[width=\linewidth]{mean_return_residual-Gaussian_model.png}
+\end{block}
+
 \end{frame}
 
 \begin{frame}
-\Huge{\centerline{Questions?}}
+    \frametitle{Experimental Results}
+
+    \begin{block}{Linear Trending Gaussian}
+        \includegraphics[width=\linewidth]{mean_return_residual-Trending-Gaussian_model.png}
+    \end{block}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Experimental Results}
+
+    \begin{block}{Wiener Process}
+        \includegraphics[width=\linewidth]{mean_return_residual-Wiener-Process_model.png}
+    \end{block}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Additional Asset Value Distribution Models}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Additional Asset Value Predictor Models}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Additional Investment Control Models}
+
+\end{frame}
+
+\begin{frame}
+    \Huge{\centerline{Questions?}}
 \end{frame}
 
 % %------------------------------------------------

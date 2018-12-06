@@ -106,3 +106,14 @@ venv.bak/
 .idea
 *.pkl
 *.png
+
+# LaTeX
+*.aux
+*.fdb_latexmk
+*.fls
+*.nav
+*.out
+*.pdf
+*.snm
+*.synctex.gz
+*.toc
