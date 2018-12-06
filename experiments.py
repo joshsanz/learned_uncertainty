@@ -235,6 +235,6 @@ def run_wiener_experiments(seed=1):
 
 
 if __name__ == "__main__":
-    run_simple_gaussian_experiments()
-    run_ltv_gaussian_experiments()
+    run_simple_gaussian_experiments(int(time.time()))
+    run_ltv_gaussian_experiments(int(time.time()))
     run_wiener_experiments(int(time.time()))
