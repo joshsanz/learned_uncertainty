@@ -122,7 +122,16 @@
 
 \begin{frame}
 \frametitle{Asset Value Distributions}
-
+    $c_t \in \mathbb{R}^n$ is the asset value at time $t$.
+    \begin{block}{Stationary Gaussian Process}
+        \[ c_t \sim \mathcal{N}\left(\mu, \Sigma \right) \]
+    \end{block}
+    \begin{block}{Linear Trending Gaussian Process}
+        \[ c_t \sim \mathcal{N}\left(\mu_{t-1} + \Delta_\mu, \Sigma \right), \, \Delta_\mu \mbox{ fixed}\]
+    \end{block}
+    \begin{block}{Wiener Process}
+        \[ c_t = c_{t-1} + u,\, u \sim \mathcal{N}\left(\mu, \Sigma \right) \]
+    \end{block}
 
 \end{frame}
 
