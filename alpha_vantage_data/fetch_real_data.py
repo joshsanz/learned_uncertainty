@@ -18,7 +18,9 @@ def daily_value_estimate(daily_value_dict):
     open_val = float(daily_value_dict["1. open"])
     high_val = float(daily_value_dict["2. high"])
     low_val = float(daily_value_dict["3. low"])
-    return np.mean([low_val, high_val])
+    close_val = float(daily_value_dict["4. close"])
+    volume = float(daily_value_dict["5. volume"])
+    return close_val
 
 
 def get_time_series(symbol):
@@ -36,8 +38,9 @@ def get_time_series(symbol):
         for i in range(result.shape[0]):
             result[i] = daily_value_estimate(time_dict[dates[i]])
     except Exception as e:
-        print(symbol, "failed:", e)
-    time.sleep(2.0)
+        print(symbol, "failed:", e, url)
+    # Throttled at 5 requests per minute.
+    time.sleep(12.0)
     return dates, result
 
 all_data = []
