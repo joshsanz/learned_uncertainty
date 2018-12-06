@@ -99,10 +99,11 @@ def run_simple_gaussian_experiments(truth, plot=False, seed=1):
     data = get_gaussian_data(num_samples, true_asset_value, asset_covariance, seed)
     num_assets = data.shape[1]
 
-    plt.plot(data, label='Asset Values')
-    plt.legend()
-    plt.title('Input Data')
-    plt.show()
+    if plot:
+        plt.plot(data, label='Asset Values')
+        plt.legend()
+        plt.title('Input Data')
+        plt.show()
 
     # Add experiments to run here.
     experiments = [
@@ -161,10 +162,11 @@ def run_ltv_gaussian_experiments(truth, plot=False, seed=1):
     data = get_gaussian_data(num_samples, np.zeros((3,)), asset_covariance, seed) + true_asset_value
     num_assets = data.shape[1]
 
-    plt.plot(data, label='Asset Values')
-    plt.legend()
-    plt.title('Input Data')
-    plt.show()
+    if plot:
+        plt.plot(data, label='Asset Values')
+        plt.legend()
+        plt.title('Input Data')
+        plt.show()
 
     # Add experiments to run here.
     experiments = [
@@ -221,10 +223,11 @@ def run_wiener_experiments(truth, plot=False, seed=1):
     data = get_wiener_data(num_samples, true_asset_v0, asset_covariance, seed)
     num_assets = data.shape[1]
 
-    plt.plot(data, label='Asset Values')
-    plt.legend()
-    plt.title('Input Data')
-    plt.show()
+    if plot:
+        plt.plot(data, label='Asset Values')
+        plt.legend()
+        plt.title('Input Data')
+        plt.show()
 
     # Add experiments to run here.
     experiments = [
