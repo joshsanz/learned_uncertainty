@@ -95,6 +95,7 @@ def run_simple_gaussian_experiments(truth, plot=False, seed=1):
     num_samples = 100
     true_asset_value = truth['asset_value']
     asset_covariance = truth['asset_covariance']
+    gamma = truth['gamma']
     data = get_gaussian_data(num_samples, true_asset_value, asset_covariance, seed)
     num_assets = data.shape[1]
 
@@ -105,9 +106,9 @@ def run_simple_gaussian_experiments(truth, plot=False, seed=1):
 
     # Add experiments to run here.
     experiments = [
-        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar, None, {"gamma": 1}),
-        ("gaussian_unbiased_l1", run_gaussian_unbiased_norm, None, {"gamma": 1, "regularization": 1}),
-        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm, None, {"gamma": 1, "regularization": 2}),
+        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar, None, {"gamma": gamma}),
+        ("gaussian_unbiased_l1", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 1}),
+        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 2}),
     ]
 
     bar_plot_mean = []
@@ -155,6 +156,7 @@ def run_ltv_gaussian_experiments(truth, plot=False, seed=1):
     true_asset_v0 = truth['asset_value']
     true_asset_delta = truth['asset_delta']
     asset_covariance = truth['asset_covariance']
+    gamma = truth['gamma']
     true_asset_value = true_asset_v0 + (true_asset_delta.T @ np.arange(0,num_samples).reshape(-1,1).T).T
     data = get_gaussian_data(num_samples, np.zeros((3,)), asset_covariance, seed) + true_asset_value
     num_assets = data.shape[1]
@@ -166,9 +168,9 @@ def run_ltv_gaussian_experiments(truth, plot=False, seed=1):
 
     # Add experiments to run here.
     experiments = [
-        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar, None, {"gamma": 1}),
-        ("gaussian_unbiased_l1", run_gaussian_unbiased_norm, None, {"gamma": 1, "regularization": 1}),
-        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm, None, {"gamma": 1, "regularization": 2}),
+        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar, None, {"gamma": gamma}),
+        ("gaussian_unbiased_l1", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 1}),
+        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 2}),
     ]
 
     bar_plot_mean = []
@@ -215,6 +217,7 @@ def run_wiener_experiments(truth, plot=False, seed=1):
     num_samples = 100
     true_asset_v0 = truth['asset_value']
     asset_covariance = truth['asset_covariance']
+    gamma = truth['gamma']
     data = get_wiener_data(num_samples, true_asset_v0, asset_covariance, seed)
     num_assets = data.shape[1]
 
@@ -225,9 +228,9 @@ def run_wiener_experiments(truth, plot=False, seed=1):
 
     # Add experiments to run here.
     experiments = [
-        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar, None, {"gamma": 1}),
-        ("gaussian_unbiased_l1", run_gaussian_unbiased_norm, None, {"gamma": 1, "regularization": 1}),
-        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm, None, {"gamma": 1, "regularization": 2}),
+        ("gaussian_unbiased_covar", run_gaussian_unbiased_covar, None, {"gamma": gamma}),
+        ("gaussian_unbiased_l1", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 1}),
+        ("gaussian_unbiased_l2", run_gaussian_unbiased_norm, None, {"gamma": gamma, "regularization": 2}),
     ]
 
     bar_plot_mean = []
@@ -271,12 +274,15 @@ def run_wiener_experiments(truth, plot=False, seed=1):
 
 if __name__ == "__main__":
     run_simple_gaussian_experiments(truth={'asset_value': np.array([0.8, 1.0, 1.1]),
-                                           'asset_covariance': np.diag( [0.02, 0.01, 0.03])},
+                                           'asset_covariance': np.diag( [0.02, 0.01, 0.03]),
+                                           'gamma': 1},
                                     plot=True, seed=int(time.time()))
     run_ltv_gaussian_experiments(truth={'asset_value': np.array([0.9, 1.2, 1.0]),
                                         'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
-                                        'asset_delta': np.array([[0.002, -0.003, 0.001]])},
+                                        'asset_delta': np.array([[0.002, -0.003, 0.001]]),
+                                        'gamma': 1},
                                  plot=True, seed=int(time.time()))
     run_wiener_experiments(truth={'asset_value': np.array([0.9, 1.2, 1.0]),
-                                  'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02},
+                                  'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
+                                  'gamma': 1},
                            plot=True, seed=int(time.time()))
