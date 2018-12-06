@@ -62,6 +62,10 @@
 \usepackage{graphicx} % Allows including images
 \usepackage{booktabs} % Allows the use of \toprule, \midrule and \bottomrule in tables
 
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+
+
 %----------------------------------------------------------------------------------------
 %	TITLE PAGE
 %----------------------------------------------------------------------------------------
@@ -87,16 +91,32 @@
 \frametitle{Portfolio Optimization Problem}
 
     \begin{itemize}
-    \item Empirical study comparing optimization models for investment strategies.
+    \item Empirical study comparing optimization models for investment strategies
     \item We formulate the problem in various ways
         \begin{enumerate}
-        \item Asset value distribution.
+        \item Asset value distribution
 
-        \item Asset value predictor.
+        \item Asset value predictor
 
-        \item Investment strategy controller.
+        \item Investment strategy controller
         \end{enumerate}
     \end{itemize}
+
+    \tikzstyle{int}=[draw, fill=blue!20, minimum size=2em]
+\tikzstyle{init} = [pin edge={to-,thin,black}]
+
+\begin{figure}
+\centering
+\begin{tikzpicture}[node distance=2.5cm,auto,>=latex']
+    \node [int] (a) {Predictor};
+    \node (b) [left of=a,node distance=4cm, coordinate] {a};
+    \node [int] (c) [right of=a, node distance=3cm] {Controller};
+    \node [coordinate] (end) [right of=c, node distance=2cm]{};
+    \path[->] (b) edge node {$c_0, c_1, \dots, c_{t-1}$} (a);
+    \path[->] (a) edge node {$\hat{c}_{t}$} (c);
+    \draw[->] (c) edge node {$x_t$} (end) ;
+\end{tikzpicture}
+\end{figure}
 
 \end{frame}
 
