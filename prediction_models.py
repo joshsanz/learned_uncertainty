@@ -71,6 +71,7 @@ class OneDimensionalAutoRegression(PredictionModel):
         return sum_outer
 
     def fit(self, samples):
+        assert(samples.shape[0] > self.p), "Number of samples are less than autoregression length"
         X = np.zeros([samples.shape[0]-self.p, self.p])
         regularizer = 0.001
         for i in range(samples.shape[0] - self.p):
@@ -101,7 +102,7 @@ class OneDimensionalAutoRegression(PredictionModel):
 if __name__ == "__main__":
     num_samples = 100
     sine_samples = np.sin(np.linspace(0, 10 * np.pi, num_samples))
-    reg_len = 10
+    reg_len = 5
 
     ar = OneDimensionalAutoRegression(reg_len)
     ar.fit(sine_samples)
@@ -110,7 +111,7 @@ if __name__ == "__main__":
     pred_sine = [ar.predict(sine_samples[i:i+reg_len], 1)[0] for i in range(num_samples - reg_len)] 
     plt.plot(np.arange(num_samples), sine_samples)
     plt.plot(np.arange(reg_len,num_samples), pred_sine, linewidth = 10, alpha = 0.5)
-    plt.savefig('autograd_test.png')
+    plt.savefig('test_plots/autograd_test.png')
     #plt.show()
 
     # from data_models import GaussianNoise
