@@ -23,20 +23,29 @@ class ControlModel(object):
     def variables(self):
         pass
 
+    def get_input(self, past_data, ar_projections, ar_errors):
+        pass
+
+    def apply_model_results(self, true_x, x, y, z):
+        pass
+
 
 class NormModel(ControlModel):
 
-    def __init__(self, num_assets, gamma=1.0, regularization=1):
+    def __init__(self, num_assets, gamma=1.0, regularization=1, nu=0.01):
         super(ControlModel, CovarianceModel).__init__(self)
         self.num_assets = num_assets
         self.gamma = gamma
         self.regularization = regularization
+        self.nu = nu
         self.x = None
+        self.x0 = None
         self.problem = None
         self._optima = None
 
     def run(self, data):
-        mu, sigma = data
+        x0, mu, sigma = data
+        self.x0 = x0
 
         self.x = cvx.Variable(self.num_assets)
 
@@ -44,7 +53,7 @@ class NormModel(ControlModel):
 
         self.problem = cvx.Problem(cvx.Maximize(objective),
                            [
-                               cvx.norm(self.x, 1) <= 1,
+                               cvx.norm(self.x, 1) <= 1 - self.nu * cvx.norm(self.x - x0, 1),
                                self.x >= 0
                            ])
         self._optima = self.problem.solve()
@@ -55,19 +64,28 @@ class NormModel(ControlModel):
     def variables(self):
         return self.x.value.flatten()
 
+    def get_input(self, past_data, ar_projections, ar_errors):
+        return ar_projections, ar_errors
+
+    def apply_model_results(self, true_x, x, y, z):
+        return true_x
+
 
 class CovarianceModel(ControlModel):
 
-    def __init__(self, num_assets, gamma=1.0):
+    def __init__(self, num_assets, gamma=1.0, nu=0.01):
         super(ControlModel, CovarianceModel).__init__(self)
         self.num_assets = num_assets
         self.gamma = gamma
+        self.nu = nu
         self.x = None
+        self.x0 = None
         self.problem = None
         self._optima = None
 
     def run(self, data):
-        mu, sigma = data
+        x0, mu, sigma = data
+        self.x0 = x0
 
         self.x = cvx.Variable(self.num_assets)
 
@@ -75,7 +93,7 @@ class CovarianceModel(ControlModel):
 
         self.problem = cvx.Problem(cvx.Maximize(objective),
                            [
-                               cvx.norm(self.x, 1) <= 1,
+                               cvx.norm(self.x, 1) <= 1 - self.nu * cvx.norm(self.x - x0, 1),
                                self.x >= 0
                            ])
         self._optima = self.problem.solve()
@@ -85,6 +103,12 @@ class CovarianceModel(ControlModel):
 
     def variables(self):
         return self.x.value.flatten()
+
+    def get_input(self, past_data, ar_projections, ar_errors):
+        return ar_projections, ar_errors
+
+    def apply_model_results(self, true_x, x, y, z):
+        return true_x
 
 
 class MultiPeriodModel(ControlModel):
@@ -152,8 +176,8 @@ class MultiPeriodModel(ControlModel):
         return projections, variances
 
     def apply_model_results(self, true_x, x, y, z):
-        return true_x
-
+        _, sell, buy = self.variables()
+        return sell[0,:-1], buy[0,:-1]
 
 class RobustMultiPeriodModel(ControlModel):
     """
@@ -227,6 +251,45 @@ class RobustMultiPeriodModel(ControlModel):
         xi = self.xi.value
         R = self.R
         return xi * R, eta * R[:,1:], zeta * R[:, 1:]
+
+    def get_input(self, past_data, ar_projections, ar_errors):
+        L = self.L
+        # assert ar_projections.shape[0] == L-1
+
+        ar_variances = np.zeros((num_assets, L))
+        ar_variances[:, 1:] = np.repeat(ar_errors.reshape(-1, 1), L - 1, axis=1)
+
+        # We want projections and variances in log space
+        projections = np.zeros((num_assets + 1, L))
+        projections[:-1, 1] = past_data[:, -1]
+        # Technically, if you have normal data there would be a variance term here too,
+        # but I'm not sure that makes sense for the autoregression
+        projections[:-1, 1:] = np.log(ar_projections.T[:, :-1])
+
+        variances = np.zeros((num_assets + 1, L))
+        # This is a first-order approximation for normally distributed data, but it's the best we have for now
+        variances[:-1, 1:] = ar_variances / np.square(ar_projections.T[:, :-1])
+
+        return projections, variances
+
+    def get_log_input(self, past_data, ar_projections, ar_errors):
+        """If we are receving input already in log space, no need to transform it"""
+        L = self.L
+        # assert ar_projections.shape[0] == L-1
+
+        ar_variances = np.zeros((num_assets, L))
+        ar_variances[:, 1:] = np.repeat(ar_errors.reshape(-1, 1), L - 1, axis=1)
+
+        projections = np.ones((num_assets + 1, L))
+        projections[:-1, :] = ar_projections.T
+        variances = np.zeros((num_assets + 1, L))
+        variances[:-1, :] = ar_variances
+
+        return projections, variances
+
+    def apply_model_results(self, true_x, x, y, z):
+        _, sell, buy = self.variables()
+        return sell[0,:-1], buy[0,:-1]
 
 
 # class MultiPeriodModelSimple(ControlModel):
