@@ -151,8 +151,8 @@ class RobustMultiPeriodModel(ControlModel):
         self.nu = nu # transaction cost
         self.num_assets = num_assets
         self.R = None
-        self.zeta = cvx.Variable((num_assets+1, L+1))
-        self.xi = cvx.Variable((num_assets+1, L))
+        self.xi = cvx.Variable((num_assets+1, L+1))
+        self.zeta = cvx.Variable((num_assets+1, L))
         self.eta = cvx.Variable((num_assets+1, L))
         self.omega = cvx.Variable()
         self.problem = None
@@ -184,16 +184,16 @@ class RobustMultiPeriodModel(ControlModel):
 
 
         objective = cvx.Maximize(self.omega)
-        constraints = [self.omega <= pLp1 @ self.zeta[:,self.L] - self.theta * cvx.quad_form(self.xi[:,-1], VLp1),
-                       self.zeta >= 0, self.xi >= 0, self.eta >= 0,
-                       self.zeta[:,0] == np.divide(x0, self.R[:,0]),
+        constraints = [self.omega <= pLp1 @ self.xi[:,self.L] - self.theta * cvx.quad_form(self.xi[:,-1], VLp1),
+                       self.xi >= 0, self.eta >= 0, self.zeta >= 0,
+                       self.xi[:,0] == np.divide(x0, self.R[:,0]),
                        self.xi[-1,1:] == 0]
         alpha = (1 - self.nu) * self.R
         beta = (1 + self.nu) * self.R
         for l in range(1, self.L + 1):
             # Equation 1.9
-            constraints += [0 == -self.zeta[:,l] + self.zeta[:,l-1] - self.eta[:,l-1] + self.xi[:,l-1],
-                            0 <= (alpha[:,l-1].T @ self.eta[:,l-1] - beta[:,l-1] @ self.xi[:,l-1] -
+            constraints += [0 == -self.xi[:,l] + self.xi[:,l-1] - self.eta[:,l-1] + self.zeta[:,l-1],
+                            0 <= (alpha[:,l-1].T @ self.eta[:,l-1] - beta[:,l-1] @ self.zeta[:,l-1] -
                                   self.theta * cvx.quad_form(cvx.bmat([[self.eta[:,l-1], self.zeta[:,l-1]]]).T, Vl[l-1]))
                             ]
         self.problem = cvx.Problem(objective, constraints)
@@ -208,7 +208,7 @@ class RobustMultiPeriodModel(ControlModel):
         eta = self.eta.value
         xi = self.xi.value
         R = self.R
-        return zeta * R, eta * R[:,1:], xi * R[:, 1:]
+        return xi * R, eta * R[:,1:], zeta * R[:, 1:]
 
 
 # class MultiPeriodModelSimple(ControlModel):
