@@ -1,5 +1,6 @@
-import autograd as ag
-import autograd.numpy as np
+# import autograd as ag
+# import autograd.numpy as np
+import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -46,6 +47,19 @@ class UnbiasGaussianEstimator(PredictionModel):
             return projected_means, projected_covariance
 
 
+class LogNormalMLE(UnbiasGaussianEstimator):
+
+    def __init__(self):
+        # https://www.wikiwand.com/en/Log-normal_distribution#/Maximum_likelihood_estimation_of_parameters
+        super(PredictionModel, UnbiasGaussianEstimator).__init__(self)
+
+    def sample_mean(self, samples):
+        return np.mean(np.log(samples), axis=0)
+
+    def sample_covariance(self, samples):
+        return np.sqrt(np.cov(np.log(samples), rowvar=False, bias=True))
+
+
 class AutoRegression(PredictionModel):
 
     def __init__(self, p, regularizer=0.001):
@@ -64,9 +78,11 @@ class AutoRegression(PredictionModel):
 
     def predict(self, samples, n):
         predictions = np.empty(shape=(n, samples.shape[1]))
+        errors = np.empty(shape=(n,))
         for i in range(samples.shape[1]):
-            predictions[:, i] = self.models[i].predict(samples.T[i], n)
-        return predictions
+            predictions[:, i], error = self.models[i].predict(samples.T[i], n)
+            errors[i] = error
+        return predictions, errors
 
 
 class OneDimensionalAutoRegression(object):
@@ -102,6 +118,7 @@ class OneDimensionalAutoRegression(object):
             pred[plen + i] = np.dot(pred[i:i+plen], self.w)
         return pred[-n:], err
 
+
 def test_autoregress(noise = 0.1):
     num_samples = 1000
     sine_samples = np.sin(np.linspace(0, 10 * np.pi, num_samples))
@@ -121,8 +138,8 @@ def test_autoregress(noise = 0.1):
 if __name__ == "__main__":
     from data_models import GaussianNoise
     
-    import pdb; pdb.set_trace()
-    test_autoregress()
+    # import pdb; pdb.set_trace()
+    # test_autoregress()
 
     num_samples = 1000
     num_assets = 3
@@ -138,9 +155,10 @@ if __name__ == "__main__":
     L = 3
     ar = AutoRegression(L)
     ar.fit(data)
-    prediction = ar.predict(data, L)
+    predictions, errors = ar.predict(data, L)
     for l in range(L):
-        print("\n prediction", l, prediction[l])
+        print("\n prediction", l, predictions[l], errors[l])
+
     # num_samples = 1000
     # num_assets = 3
     #
@@ -158,3 +176,11 @@ if __name__ == "__main__":
     #     print("\n projection", l)
     #     for i in range(num_assets):
     #         print(sample_mean[l][i], sample_variance[l][i])
+
+    # log normal test.
+    num_samples = 100000
+    samples = np.random.lognormal(123, 67, num_samples).reshape(num_samples, 1)
+    ln_mle = LogNormalMLE()
+    mean, var = ln_mle.predict(samples)
+    print(123, 7)
+    print(mean, var)
