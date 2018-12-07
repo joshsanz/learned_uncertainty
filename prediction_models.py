@@ -48,11 +48,11 @@ class UnbiasGaussianEstimator(PredictionModel):
 
 class OneDimensionalAutoRegression(PredictionModel):
 
-    def __init__(self, L, learning_rate=0.2, seed=1):
+    def __init__(self, p, learning_rate=0.1, seed=1):
         super(PredictionModel, OneDimensionalAutoRegression).__init__(self)
         self.r = np.random.RandomState(seed=seed)
         self.w = None
-        self.L = L
+        self.p = p
         self.samples = None
         self.grad_loss = ag.grad(self.loss, 0)
         self.learning_rate = learning_rate
@@ -62,7 +62,7 @@ class OneDimensionalAutoRegression(PredictionModel):
         sum_outer = 0
         for t in range(k):
             sum_inner = - r[t]
-            for i in range(p):
+            for i in range(1, p):
                 if i < t:
                     continue
                 sum_inner += w[i] * r[t-i]
@@ -75,11 +75,10 @@ class OneDimensionalAutoRegression(PredictionModel):
             assert len(samples.shape) == 2
             assert samples.shape[1] == 1
         self.samples = samples.flatten()
-        self.w = self.r.rand(self.L)
+        self.w = self.r.rand(self.p)
         for i in range(1000):
-            self.w -= self.learning_rate*self.grad_loss(self.w, self.samples, self.L)
-            print(self.loss(self.w, self.samples, self.L))
-
+            self.w -= self.learning_rate*self.grad_loss(self.w, self.samples, self.p)
+            print(self.loss(self.w, self.samples, self.p))
 
 if __name__ == "__main__":
     num_samples = 100
