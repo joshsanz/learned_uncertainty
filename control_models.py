@@ -1,6 +1,10 @@
 import cvxpy as cvx
 import numpy as np
 
+import matplotlib
+matplotlib.use('tkagg')
+from matplotlib import pyplot as plt
+plt.rc('figure', figsize=[10, 6])
 
 class ControlModel(object):
     """
@@ -94,9 +98,9 @@ class MultiPeriodModel(ControlModel):
         self.nu = nu # transaction cost
         self.num_assets = num_assets
         self.R = None
-        self.zeta = cvx.Variable((num_assets, L+1))
-        self.xi = cvx.Variable((num_assets, L))
+        self.xi = cvx.Variable((num_assets, L+1))
         self.eta = cvx.Variable((num_assets, L))
+        self.zeta = cvx.Variable((num_assets, L))
         self.omega = cvx.Variable()
         self.problem = None
         self._optima = None
@@ -109,15 +113,15 @@ class MultiPeriodModel(ControlModel):
         self.R = np.cumprod(returns, axis=1)
         print("R:",self.R)
         objective = cvx.Maximize(self.omega)
-        constraints = [self.omega <= self.R[:,self.L].T @ self.zeta[:,-1],
+        constraints = [self.omega <= self.R[:,self.L].T @ self.xi[:,-1],
                        self.zeta >= 0, self.xi >= 0, self.eta >= 0,
-                       self.zeta[:,0] == np.divide(x0, self.R[:,0])]
+                       self.xi[:,0] == np.divide(x0, self.R[:,0])]
         A = (1 - self.nu) * self.R
         B = (1 + self.nu) * self.R
         for l in range(1, self.L + 1):
             # Equation 1.9
-            constraints += [0 == -self.zeta[:,l] + self.zeta[:,l-1] - self.eta[:,l-1] + self.xi[:,l-1],
-                            0 <= A[:,l-1].T @ self.eta[:,l-1] - B[:,l-1] @ self.xi[:,l-1]]
+            constraints += [0 == -self.xi[:,l] + self.xi[:,l-1] - self.eta[:,l-1] + self.zeta[:,l-1],
+                            0 <= A[:,l-1].T @ self.eta[:,l-1] - B[:,l-1] @ self.zeta[:,l-1]]
         self.problem = cvx.Problem(objective, constraints)
         self._optima = self.problem.solve()
         print(self.problem.status)
@@ -130,12 +134,15 @@ class MultiPeriodModel(ControlModel):
         eta = self.eta.value
         xi = self.xi.value
         R = self.R
-        return zeta * R, eta * R[:,1:], xi * R[:, 1:]
+        return xi * R, eta * R[:,1:], zeta * R[:, 1:]
 
 class RobustMultiPeriodModel(ControlModel):
     """
     http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.116.559&rep=rep1&type=pdf
     page 15
+
+    Note: Here we use theta as a scaling parameter on the variance, xi^T V xi,
+    rather than on the standard deviation sqrt(xi^T V xi) to ease implementation in CVX
     """
     def __init__(self, num_assets, L, theta, nu):
         self.L = L # planning horizon
@@ -152,21 +159,41 @@ class RobustMultiPeriodModel(ControlModel):
 
     def run(self, data):
         # x0 n x 1 initial state of portfolio,
-        # returns n x L expected return at each time step,
-        # sigmas n x n x L variance at each time step
-        x0, returns, _ = data
-        self.R = np.cumprod(returns, axis=1)
+        # log_returns n x L expected log return at each time step,
+        # sigmas n x L expected log variance at each time step
+        x0, log_returns, log_vars = data
+
+        # Expectations
+        ExpR = np.exp(np.cumsum(log_returns + 0.5 * log_vars, axis=1))
+        self.R = ExpR
         print("R:",self.R)
+        pl = [ np.concatenate([(1-self.nu) * ExpR[:,l], -(1+self.nu) * ExpR[:,l]]) for l in range(self.L) ]
+        pLp1 = ExpR[:,-1]
+
+        # Covariances
+        VarR = (np.exp(np.cumsum(2 * log_returns + log_vars, axis=1)) * np.exp(np.cumsum(log_vars, axis=1)) -
+                np.exp(np.cumsum(2 * log_returns + log_vars, axis=1)))
+        print("VarR:",VarR)
+        print(VarR.shape)
+        Cl = [ np.diag(VarR[:,l]) for l in range(1, self.L+1) ]
+        Vl = [ np.bmat( [[(1 - self.nu) ** 2 * C, -(1-self.nu) * (1 + self.nu) * C],
+                         [-(1-self.nu) * (1 + self.nu) * C, (1 + self.nu) ** 2 * C]] ) for C in Cl ]
+        print(len(Vl))
+        VLp1 = Cl[-1]
+
+
         objective = cvx.Maximize(self.omega)
-        constraints = [self.omega <= self.R[:,self.L].T @ self.zeta[:,-1],
+        constraints = [self.omega <= pLp1 @ self.zeta[:,self.L] - self.theta * cvx.quad_form(self.xi[:,-1], VLp1),
                        self.zeta >= 0, self.xi >= 0, self.eta >= 0,
                        self.zeta[:,0] == np.divide(x0, self.R[:,0])]
-        A = (1 - self.nu) * self.R
-        B = (1 + self.nu) * self.R
+        alpha = (1 - self.nu) * self.R
+        beta = (1 + self.nu) * self.R
         for l in range(1, self.L + 1):
             # Equation 1.9
             constraints += [0 == -self.zeta[:,l] + self.zeta[:,l-1] - self.eta[:,l-1] + self.xi[:,l-1],
-                            0 <= A[:,l-1].T @ self.eta[:,l-1] - B[:,l-1] @ self.xi[:,l-1]]
+                            0 <= (alpha[:,l-1].T @ self.eta[:,l-1] - beta[:,l-1] @ self.xi[:,l-1] -
+                                  self.theta * cvx.quad_form(cvx.bmat([[self.eta[:,l-1], self.zeta[:,l-1]]]).T, Vl[l-1]))
+                            ]
         self.problem = cvx.Problem(objective, constraints)
         self._optima = self.problem.solve()
         print(self.problem.status)
@@ -271,7 +298,7 @@ if __name__ == "__main__":
 
     data = NoisySine()
     phase = np.array([1., .5, 2.])
-    noise = np.array([0.5, 0.3, 0.2])
+    noise = np.array([0.1, 0.03, 0.2])
     samples = data.sample((phase, noise, 20))
     for i in range(samples.shape[1]):
         print(samples.T[i])
@@ -284,15 +311,40 @@ if __name__ == "__main__":
     print(ar_projections.shape)
     print("Errors:",ar_errors)
     print(ar_errors.shape)
+    ar_variances = np.zeros((num_assets, L))
+    ar_variances[:,1:] = np.repeat(ar_errors.reshape(-1,1), L-1, axis=1)
 
     # Something goes wrong; dimension of assets != dimension of horizon?
     mpc = MultiPeriodModel(num_assets, 4, 2, .1)
+    rmpc = RobustMultiPeriodModel(num_assets, 4, 2, .1)
     x0 = np.zeros((num_assets,))
     x0[-1] = 1.0
     mpc.run(data=(x0, ar_projections.T, None))
+    rmpc.run(data=(x0, np.log(ar_projections.T), ar_variances))
 
     x, y, z = mpc.variables()
     print("x:",x)
     print("y:",y)
     print("z:",z)
     print(mpc.optima())
+
+    rx, ry, rz = rmpc.variables()
+    print("rx:",rx)
+    print("ry:",ry)
+    print("rz:",rz)
+    print(rmpc.optima())
+
+    plt.plot(x.T,label='x')
+    plt.plot(rx.T,':',label='rx')
+    plt.legend()
+    plt.show()
+
+    plt.plot(y.T,label='y')
+    plt.plot(ry.T,':',label='ry')
+    plt.legend()
+    plt.show()
+
+    plt.plot(z.T,label='z')
+    plt.plot(rz.T,':',label='rz')
+    plt.legend()
+    plt.show()

@@ -81,7 +81,7 @@ class AutoRegression(PredictionModel):
 
     def predict(self, samples, n):
         predictions = np.empty(shape=(n, samples.shape[1]))
-        errors = np.empty(shape=(n,))
+        errors = np.empty(shape=(samples.shape[1],))
         for i in range(samples.shape[1]):
             predictions[:, i], error = self.models[i].predict(samples.T[i], n)
             errors[i] = error
