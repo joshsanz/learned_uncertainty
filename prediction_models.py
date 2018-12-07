@@ -75,10 +75,10 @@ class OneDimensionalAutoRegression(PredictionModel):
             assert len(samples.shape) == 2
             assert samples.shape[1] == 1
         self.samples = samples.flatten()
-        self.w = self.r.rand(self.L)
+        self.w = self.r.rand(self.p)
         for i in range(10):
-            self.w -= self.learning_rate*self.grad_loss(self.w, self.samples, self.L)
-            print(self.loss(self.w, self.samples, self.L))
+            self.w -= self.learning_rate*self.grad_loss(self.w, self.samples, self.p)
+            print(self.loss(self.w, self.samples, self.p))
 
     #def toToepMat(x, L):
     #    mat = np.zeros(x.shape[0]-L, L)
