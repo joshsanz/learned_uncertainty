@@ -36,14 +36,17 @@ def get_real_data():
 
 
 def get_returns(data, investment_strategies, asset_predictions):
+    augmented_data = np.hstack((data, np.ones((data.shape[0], 1))))
+    augmented_predictions = np.hstack((asset_predictions, np.ones((asset_predictions.shape[0], 1))))
+
     num_samples = investment_strategies.shape[0]
-    predicted_return = np.zeros(shape=(num_samples,))
-    true_return = np.zeros(shape=(num_samples,))
+    predicted_return = np.zeros(shape=(num_samples+1,))
+    true_return = np.zeros(shape=(num_samples+1,))
     for t in range(num_samples):
         if t <= 2:
             continue
-        observed_asset_value = data[t]
-        predicted_asset_value = asset_predictions[t]
+        observed_asset_value = augmented_data[t]
+        predicted_asset_value = augmented_predictions[t]
         investment_strategy = investment_strategies[t]
         true_return[t] = investment_strategy.dot(observed_asset_value)
         predicted_return[t] = investment_strategy.dot(predicted_asset_value)
@@ -108,25 +111,30 @@ def run_gaussian_covar(data, num_samples, num_assets, pred_params, control_param
 def run_real_ar_mpc(data, num_samples, num_assets, pred_params, control_params):
 
     prediction_model = AutoRegression(**pred_params)
-    control_params["num_assets"] = num_assets
-    mpm = MultiPeriodModel(**control_params)
     L = control_params["L"]
 
+    mpm_params = control_params.copy()
+    mpm_params["num_assets"] = num_assets
+    mpm_params["L"] = L-1
+    mpm = MultiPeriodModel(**mpm_params)
+
     predicted_returns = np.zeros(shape=(num_samples, num_assets))
-    investment_strategies = np.zeros(shape=(num_samples, num_assets))
+    investment_strategies = np.zeros(shape=(num_samples, num_assets+1))
     current_investments = np.zeros(shape=(num_assets + 1,))
     current_investments[-1] = 1.0
     for t in range(num_samples):
-        if t <= L:
+        if t <= L+20:
             continue
+        print("running timestep", t)
         past_data = data[:t]
         prediction_model.fit(past_data)
         predicted_return, predicted_return_error = prediction_model.predict(past_data, L)
-        control_inputs = mpm.get_input(past_data, predicted_return, predicted_return_error)
+        control_inputs = mpm.get_input(L, past_data, predicted_return, predicted_return_error)
 
         control_inputs = (current_investments, control_inputs[0], control_inputs[1])
-        mpm.run(*control_inputs)
-        current_investments = mpm.apply_model_results(*mpm.variables())
+        mpm.run(control_inputs)
+
+        current_investments = mpm.apply_model_results(current_investments, mpm.variables())
         investment_strategies[t] = current_investments
 
     return predicted_returns, investment_strategies
