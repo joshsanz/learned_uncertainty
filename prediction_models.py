@@ -88,6 +88,20 @@ class AutoRegression(PredictionModel):
         return predictions, errors
 
 
+class LogAutoRegression(AutoRegression):
+
+    def __init__(self, p, regularizer=0.001):
+        super(LogAutoRegression, self).__init__(p, regularizer)
+
+    def fit(self, samples):
+        self.data = samples.T
+        self.models = []
+        for i in range(self.data.shape[0]):
+            model = OneDimensionalLogAutoRegression(self.p, self.regularizer)
+            model.fit(self.data[i])
+            self.models.append(model)
+
+
 class OneDimensionalAutoRegression(object):
 
     def __init__(self, p, regularizer=0.001):
@@ -111,7 +125,7 @@ class OneDimensionalAutoRegression(object):
                 np.matmul(X.transpose(),y))
 
     def predict(self, r, n):
-        assert(r.shape[0] > self.p + 10), "Need atleast 10 points to estimate uncertainty"
+        assert(r.shape[0] > self.p + 10), "Need at least 10 points to estimate uncertainty"
         uX, uY = self.to_mat(r)
         err = np.max(np.abs(np.matmul(uX, self.w) - uY))
         plen = self.w.shape[0]
@@ -122,9 +136,48 @@ class OneDimensionalAutoRegression(object):
         return pred[-n:], err
 
 
+class OneDimensionalLogAutoRegression(object):
+
+    def __init__(self, p, regularizer=0.001):
+        self.w = None
+        self.p = p
+        self.regularizer = regularizer
+
+    def to_mat(self, samples):
+        X = np.zeros([samples.shape[0]-self.p, self.p])
+        for i in range(samples.shape[0] - self.p):
+            X[i] = samples[i:i+self.p]
+        y = samples[self.p:]
+        return X, y
+
+    def fit(self, samples):
+        assert(samples.shape[0] > self.p), "Number of samples are less than autoregression length"
+        X, y = self.to_mat(samples)
+        X = np.log(X)
+        y = np.log(y)
+        self.regularizer = 0.0001
+        self.w = np.matmul(\
+                np.linalg.inv(np.matmul(X.transpose(),X) + self.regularizer * np.identity(X.shape[1])),\
+                np.matmul(X.transpose(),y))
+
+    def predict(self, r, n):
+        assert(r.shape[0] > self.p + 10), "Need at least 10 points to estimate uncertainty"
+        uX, uY = self.to_mat(r)
+        uX = np.log(uX)
+        uY = np.log(uY)
+        err = np.max(np.abs(np.matmul(uX, self.w) - uY))
+        plen = self.w.shape[0]
+        pred = np.zeros([n + plen])
+        pred[0:plen] = r[-plen:]
+        for i in range(n):
+            pred[plen + i] = np.dot(pred[i:i+plen], self.w)
+        return pred[-n:], err
+
+
+
 def test_autoregress(noise = 0.1):
     num_samples = 1000
-    sine_samples = np.sin(np.linspace(0, 10 * np.pi, num_samples))
+    sine_samples = 0.1 * np.sin(np.linspace(0, 10 * np.pi, num_samples)) + 2
     reg_len = 40
     sine_samples += np.random.normal(0, noise, sine_samples.shape[0])
     ar = OneDimensionalAutoRegression(reg_len)
@@ -148,17 +201,25 @@ if __name__ == "__main__":
     num_assets = 3
 
     mu_truth = np.ones(num_assets)
-    sigma_truth = np.diag([0.5, 0.3, 0.2])
+    sigma_truth = np.diag([0.1, 0.03, 0.2])
     sampler = GaussianNoise()
 
     data = np.zeros(shape=(num_samples, num_assets))
     for i in range(num_samples):
         data[i] = sampler.sample((mu_truth, sigma_truth))
+    data = np.clip(data, 0.0001, None)
 
     L = 3
     ar = AutoRegression(L)
     ar.fit(data)
     predictions, errors = ar.predict(data, L)
+    for l in range(L):
+        print("\n prediction", l, predictions[l], errors[l])
+
+    L = 3
+    arlog = LogAutoRegression(L)
+    arlog.fit(data)
+    predictions, errors = arlog.predict(data, L)
     for l in range(L):
         print("\n prediction", l, predictions[l], errors[l])
 
