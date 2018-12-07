@@ -48,7 +48,7 @@ class UnbiasGaussianEstimator(PredictionModel):
 
 class OneDimensionalAutoRegression(PredictionModel):
 
-    def __init__(self, p, learning_rate=0.1, seed=1):
+    def __init__(self, p, learning_rate=0.001, seed=1):
         super(PredictionModel, OneDimensionalAutoRegression).__init__(self)
         self.r = np.random.RandomState(seed=seed)
         self.w = None
@@ -63,7 +63,7 @@ class OneDimensionalAutoRegression(PredictionModel):
         for t in range(k):
             sum_inner = - r[t]
             for i in range(1, p):
-                if i < t:
+                if t - i < 0:
                     continue
                 sum_inner += w[i] * r[t-i]
             sum_inner = sum_inner**2
@@ -84,9 +84,9 @@ class OneDimensionalAutoRegression(PredictionModel):
     #def toToepMat(x, L):
     #    mat = np.zeros(x.shape[0]-L, L)
     #    for i in range(L,x.shape[0]):
-    #        
+    #
     #def fit(self, samples):
-    
+
     #def predict(self, r):
     #    return np.dot(r, self.w)
 
@@ -96,19 +96,19 @@ class OneDimensionalAutoRegression(PredictionModel):
         pred[0:plen] = r[-plen:]
         for i in range(n):
             pred[plen + i] = np.dot(pred[i:i+plen], self.w)
-        return pred[-n:] 
-        #for 
+        return pred[-n:]
+        #for
 
 if __name__ == "__main__":
     num_samples = 100
     sine_samples = np.sin(np.linspace(0, 10 * np.pi, num_samples))
-    reg_len = 5
+    reg_len = 20
 
     ar = OneDimensionalAutoRegression(reg_len)
     ar.fit(sine_samples)
 
     pred_sine = [0 for i in range(len(sine_samples))]
-    pred_sine = [ar.predict(sine_samples[i:i+reg_len], 1)[0] for i in range(num_samples - reg_len)] 
+    pred_sine = ar.predict(sine_samples, 80)
     plt.plot(np.arange(num_samples), sine_samples)
     plt.plot(np.arange(reg_len,num_samples), pred_sine, linewidth = 10, alpha = 0.5)
     plt.savefig('test_plots/autograd_test.png')
