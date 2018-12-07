@@ -72,6 +72,7 @@ class NormModel(ControlModel):
         updated_x = true_x.copy()
         # modify updated_x with sell/buy changes.
         sell, buy = np.maximum(0, -(new_x - true_x)), np.maximum(0, (new_x - true_x))
+        updated_x = updated_x - sell + buy
         return updated_x
 
 
@@ -116,6 +117,7 @@ class CovarianceModel(ControlModel):
         updated_x = true_x.copy()
         # modify updated_x with buy/sell changes.
         sell, buy = np.maximum(0, -(new_x - true_x)), np.maximum(0, (new_x - true_x))
+        updated_x = updated_x - sell + buy
         return updated_x
 
 
@@ -185,9 +187,11 @@ class MultiPeriodModel(ControlModel):
 
     def apply_model_results(self, true_x):
         updated_x = true_x.copy()
+        print(true_x.shape)
         # modify updated_x with buy/sell changes.
         _, sell_all, buy_all = self.variables()
-        sell, buy = sell_all[:-1, 0], buy_all[:-1, 0]
+        sell, buy = sell_all[:, 0], buy_all[:, 0]
+        updated_x = true_x - sell + buy
         return updated_x
 
 
@@ -282,7 +286,8 @@ class RobustMultiPeriodModel(ControlModel):
         updated_x = true_x.copy()
         # modify updated_x with buy/sell changes.
         _, sell_all, buy_all = self.variables()
-        sell, buy = sell_all[:-1, 0], buy_all[:-1, 0]
+        sell, buy = sell_all[:, 0], buy_all[:, 0]
+        updated_x = updated_x - sell + buy
         return updated_x
 
 
