@@ -63,7 +63,7 @@ class OneDimensionalAutoRegression(PredictionModel):
         for t in range(k):
             sum_inner = - r[t]
             for i in range(1, p):
-                if i > t:
+                if t - i < 0:
                     continue
                 sum_inner += w[i] * r[t-i]
             sum_inner = sum_inner**2
