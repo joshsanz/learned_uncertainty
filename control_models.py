@@ -65,11 +65,12 @@ class NormModel(ControlModel):
         return self.x.value.flatten()
 
     def get_input(self, past_data, ar_projections, ar_errors):
-        return ar_projections, ar_errors
+        return ar_projections[:,0], ar_errors[:,0]
 
     def apply_model_results(self, true_x, x, y, z):
-        return true_x
-
+        new_x = self.variables()
+        # return sell, buy tuple
+        return np.maximum(0, -(new_x - true_x)), np.maximum(0, (new_x - true_x))
 
 class CovarianceModel(ControlModel):
 
@@ -105,10 +106,12 @@ class CovarianceModel(ControlModel):
         return self.x.value.flatten()
 
     def get_input(self, past_data, ar_projections, ar_errors):
-        return ar_projections, ar_errors
+        return ar_projections[:,0], ar_errors[:,0]
 
     def apply_model_results(self, true_x, x, y, z):
-        return true_x
+        new_x = self.variables()
+        # return sell, buy tuple
+        return np.maximum(0, -(new_x - true_x)), np.maximum(0, (new_x - true_x))
 
 
 class MultiPeriodModel(ControlModel):
@@ -177,7 +180,7 @@ class MultiPeriodModel(ControlModel):
 
     def apply_model_results(self, true_x, x, y, z):
         _, sell, buy = self.variables()
-        return sell[0,:-1], buy[0,:-1]
+        return sell[:-1, 0], buy[:-1, 0]
 
 class RobustMultiPeriodModel(ControlModel):
     """
@@ -209,21 +212,16 @@ class RobustMultiPeriodModel(ControlModel):
         # Expectations
         ExpR = np.exp(np.cumsum(log_returns + 0.5 * log_vars, axis=1))
         self.R = ExpR
-        print("R:",self.R)
         pl = [ np.concatenate([(1-self.nu) * ExpR[:,l], -(1+self.nu) * ExpR[:,l]]) for l in range(self.L) ]
         pLp1 = ExpR[:,-1]
 
         # Covariances
         VarR = (np.exp(np.cumsum(2 * log_returns + log_vars, axis=1)) * np.exp(np.cumsum(log_vars, axis=1)) -
                 np.exp(np.cumsum(2 * log_returns + log_vars, axis=1)))
-        print("VarR:",VarR)
-        print(VarR.shape)
         Cl = [ np.diag(VarR[:,l]) for l in range(1, self.L+1) ]
         Vl = [ np.bmat( [[(1 - self.nu) ** 2 * C, -(1-self.nu) * (1 + self.nu) * C],
                          [-(1-self.nu) * (1 + self.nu) * C, (1 + self.nu) ** 2 * C]] ) for C in Cl ]
-        print(len(Vl))
         VLp1 = Cl[-1]
-
 
         objective = cvx.Maximize(self.omega)
         constraints = [self.omega <= pLp1 @ self.xi[:,self.L] - self.theta * cvx.quad_form(self.xi[:,-1], VLp1),
@@ -289,7 +287,7 @@ class RobustMultiPeriodModel(ControlModel):
 
     def apply_model_results(self, true_x, x, y, z):
         _, sell, buy = self.variables()
-        return sell[0,:-1], buy[0,:-1]
+        return sell[:-1, 0], buy[:-1, 0]
 
 
 # class MultiPeriodModelSimple(ControlModel):
