@@ -23,7 +23,7 @@ class ControlModel(object):
     def variables(self):
         pass
 
-    def get_input(self, L, past_data, ar_projections, ar_errors):
+    def get_input(self, L, past_data, ar_projections, ar_errors, bank_rate=1.0):
         pass
 
     def apply_model_results(self, true_x):
@@ -64,7 +64,7 @@ class NormModel(ControlModel):
     def variables(self):
         return self.x.value.flatten()
 
-    def get_input(self, L, past_data, ar_projections, ar_errors):
+    def get_input(self, L, past_data, ar_projections, ar_errors, bank_rate=1.0):
         return ar_projections[:,0], ar_errors[:,0]
 
     def apply_model_results(self, true_x):
@@ -108,7 +108,7 @@ class CovarianceModel(ControlModel):
     def variables(self):
         return self.x.value.flatten()
 
-    def get_input(self, L, past_data, ar_projections, ar_errors):
+    def get_input(self, L, past_data, ar_projections, ar_errors, bank_rate=1.0):
         return ar_projections[:,0], ar_errors[:,0]
 
     def apply_model_results(self, true_x):
@@ -117,7 +117,6 @@ class CovarianceModel(ControlModel):
         # modify updated_x with buy/sell changes.
         sell, buy = np.maximum(0, -(new_x - true_x)), np.maximum(0, (new_x - true_x))
         return updated_x
-
 
 
 class MultiPeriodModel(ControlModel):
@@ -170,7 +169,7 @@ class MultiPeriodModel(ControlModel):
         R = self.R
         return xi * R, eta * R[:,1:], zeta * R[:, 1:]
 
-    def get_input(self, L, past_data, ar_projections, ar_errors):
+    def get_input(self, L, past_data, ar_projections, ar_errors, bank_rate=1.0):
         num_assets = self.num_assets
 
         ar_variances = np.zeros((num_assets, L))
@@ -178,8 +177,9 @@ class MultiPeriodModel(ControlModel):
         variances = np.zeros((num_assets + 1, L))
         variances[:-1, :] = ar_variances
 
-        projections = np.ones((num_assets + 1, L))
+        projections = np.ones((num_assets + 1, L)) * bank_rate
         projections[:-1, :] = ar_projections.T
+        # assert np.allclose(projections[-1, :], bank_rate)
 
         return projections, variances
 
@@ -259,7 +259,7 @@ class RobustMultiPeriodModel(ControlModel):
         R = self.R
         return xi * R, eta * R[:,1:], zeta * R[:, 1:]
 
-    def get_input(self, L, past_data, ar_projections, ar_errors):
+    def get_input(self, L, past_data, ar_projections, ar_errors, bank_rate=1.0):
         num_assets = self.num_assets
 
         ar_variances = np.zeros((num_assets, L))

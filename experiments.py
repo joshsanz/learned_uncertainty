@@ -35,9 +35,9 @@ def get_real_data():
     return sampler.labels(), sampler.dates(), sampler.sample()
 
 
-def get_returns(data, investment_strategies, asset_predictions):
-    augmented_data = np.hstack((data, np.ones((data.shape[0], 1))))
-    augmented_predictions = np.hstack((asset_predictions, np.ones((asset_predictions.shape[0], 1))))
+def get_returns(data, investment_strategies, asset_predictions, bank_rate=1.0):
+    augmented_data = np.hstack((data, np.ones((data.shape[0], 1))*bank_rate))
+    augmented_predictions = np.hstack((asset_predictions, np.ones((asset_predictions.shape[0], 1))*bank_rate))
 
     num_samples = investment_strategies.shape[0]
     predicted_return = np.zeros(shape=(num_samples+1,))
@@ -108,7 +108,7 @@ def run_gaussian_covar(data, num_samples, num_assets, pred_params, control_param
     return predicted_asset_values, investment_strategies
 
 
-def run_real_ar_mpc(data, num_samples, num_assets, pred_params, control_params):
+def run_real_ar_mpc(data, num_samples, num_assets, pred_params, control_params, bank_rate):
 
     prediction_model = AutoRegression(**pred_params)
     L = control_params["L"]
@@ -129,9 +129,9 @@ def run_real_ar_mpc(data, num_samples, num_assets, pred_params, control_params):
         past_data = data[:t]
         prediction_model.fit(past_data)
         predicted_return, predicted_return_error = prediction_model.predict(past_data, L)
-        control_inputs = mpm.get_input(L, past_data, predicted_return, predicted_return_error)
+        ctrl_proj, ctrl_var = mpm.get_input(L, past_data, predicted_return, predicted_return_error, bank_rate)
 
-        control_inputs = (current_investments, control_inputs[0], control_inputs[1])
+        control_inputs = (current_investments, ctrl_proj, ctrl_var)
         mpm.run(control_inputs)
 
         current_investments = mpm.apply_model_results(current_investments)
@@ -349,7 +349,7 @@ def run_wiener_experiments(params, plot=False, seed=1):
     return results
 
 
-def run_real_mpc_experiments(pred_params, control_params, plot=False, seed=1):
+def run_real_mpc_experiments(pred_params, control_params, bank_rate, plot=False, seed=1):
     data_labels, data_dates, data = get_real_data()
     print("date range:", data_dates[0][0], "-", data_dates[0][-1])
     num_samples = data.shape[0]
@@ -377,8 +377,9 @@ def run_real_mpc_experiments(pred_params, control_params, plot=False, seed=1):
                                                                         num_samples,
                                                                         num_assets,
                                                                         pred_params,
-                                                                        control_params)
-        predicted_return, true_return = get_returns(data, investment_strategies, predicted_asset_values)
+                                                                        control_params,
+                                                                        bank_rate)
+        predicted_return, true_return = get_returns(data, investment_strategies, predicted_asset_values, bank_rate)
         results[name] = {}
         results[name]['predicted_return'] = predicted_return
         results[name]['strategies'] = investment_strategies
@@ -434,4 +435,5 @@ if __name__ == "__main__":
                              control_params={"L": 10,
                                              "theta": 2.0,
                                              "nu": 0.1},
+                             bank_rate=1.05,
                              plot=False, seed=int(time.time()))
