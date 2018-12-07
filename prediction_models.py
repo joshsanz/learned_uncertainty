@@ -48,7 +48,7 @@ class UnbiasGaussianEstimator(PredictionModel):
 
 class OneDimensionalAutoRegression(PredictionModel):
 
-    def __init__(self, L, learning_rate=0.2, seed=1):
+    def __init__(self, L, learning_rate=0.01, seed=1):
         super(PredictionModel, OneDimensionalAutoRegression).__init__(self)
         self.r = np.random.RandomState(seed=seed)
         self.w = None
@@ -62,7 +62,7 @@ class OneDimensionalAutoRegression(PredictionModel):
         sum_outer = 0
         for t in range(k):
             sum_inner = - r[t]
-            for i in range(p):
+            for i in range(1,p):
                 if i < t:
                     continue
                 sum_inner += w[i] * r[t-i]
@@ -76,20 +76,45 @@ class OneDimensionalAutoRegression(PredictionModel):
             assert samples.shape[1] == 1
         self.samples = samples.flatten()
         self.w = self.r.rand(self.L)
-        for i in range(1000):
+        for i in range(10):
             self.w -= self.learning_rate*self.grad_loss(self.w, self.samples, self.L)
             print(self.loss(self.w, self.samples, self.L))
 
+    #def toToepMat(x, L):
+    #    mat = np.zeros(x.shape[0]-L, L)
+    #    for i in range(L,x.shape[0]):
+    #        
+    #def fit(self, samples):
+    
+    #def predict(self, r):
+    #    return np.dot(r, self.w)
+
+    def predict(self, r, n):
+        plen = self.w.shape[0]
+        pred = np.zeros([n + plen])
+        pred[0:plen] = r[-plen:]
+        for i in range(n):
+            pred[plen + i] = np.dot(pred[i:i+plen], self.w)
+        return pred[-n:] 
+        #for 
+
+    #def 
 
 if __name__ == "__main__":
     num_samples = 100
-    sine_samples = np.sin(np.linspace(0, 2 * np.pi, num_samples))
+    sine_samples = np.sin(np.linspace(0, 10 * np.pi, num_samples))
+    reg_len = 10
 
-    ar = OneDimensionalAutoRegression(10)
+    ar = OneDimensionalAutoRegression(reg_len)
     ar.fit(sine_samples)
 
+    pred_sine = [0 for i in range(len(sine_samples))]
+    pred_sine = ar.predict(sine_samples, 5) 
+    import pdb; pdb.set_trace()
     plt.plot(np.arange(num_samples), sine_samples)
-    plt.show()
+    plt.plot(np.arange(reg_len,num_samples), pred_sine)
+    plt.savefig('autograd_test.png')
+    #plt.show()
 
     # from data_models import GaussianNoise
     #
