@@ -35,8 +35,8 @@ def get_real_data():
     return sampler.labels(), sampler.dates(), sampler.sample()
 
 
-def get_returns(data, investment_strategies, asset_predictions, bank_rate=1.0):
-    augmented_data = np.hstack((data, np.ones((data.shape[0], 1))*bank_rate))
+def get_money(observed_returns, investment_strategies, asset_predictions, bank_rate=1.0):
+    augmented_data = np.hstack((observed_returns, np.ones((observed_returns.shape[0], 1)) * bank_rate))
     augmented_predictions = np.hstack((asset_predictions, np.ones((asset_predictions.shape[0], 1))*bank_rate))
 
     num_samples = investment_strategies.shape[0]
@@ -109,6 +109,7 @@ def run_gaussian_covar(data, num_samples, num_assets, pred_params, control_param
 
 
 def run_real_ar_mpc(data, num_samples, num_assets, pred_params, control_params, bank_rate):
+    augmented_data = np.hstack((data, np.ones((data.shape[0], 1)) * bank_rate))
 
     prediction_model = AutoRegression(**pred_params)
     L = control_params["L"]
@@ -120,8 +121,8 @@ def run_real_ar_mpc(data, num_samples, num_assets, pred_params, control_params, 
 
     predicted_returns = np.zeros(shape=(num_samples, num_assets))
     investment_strategies = np.zeros(shape=(num_samples, num_assets+1))
-    current_investments = np.zeros(shape=(num_assets + 1,))
-    current_investments[-1] = 1.0
+    current_x = np.zeros(shape=(num_assets + 1,))
+    current_x[-1] = 1.0
     for t in range(num_samples):
         if t <= L+20:
             continue
@@ -131,11 +132,14 @@ def run_real_ar_mpc(data, num_samples, num_assets, pred_params, control_params, 
         predicted_return, predicted_return_error = prediction_model.predict(past_data, L)
         ctrl_proj, ctrl_var = mpm.get_input(L, past_data, predicted_return, predicted_return_error, bank_rate)
 
-        control_inputs = (current_investments, ctrl_proj, ctrl_var)
+        control_inputs = (current_x, ctrl_proj, ctrl_var)
         mpm.run(control_inputs)
 
-        current_investments = mpm.apply_model_results(current_investments)
-        investment_strategies[t] = current_investments
+        observed_returns = augmented_data[t]
+        investment_strategy = mpm.apply_model_results(current_x)
+        current_x = observed_returns * investment_strategy
+        investment_strategies[t] = investment_strategy
+        print("sum(current_x)", np.sum(current_x))
 
     return predicted_returns, investment_strategies
 
@@ -187,7 +191,7 @@ def run_simple_gaussian_experiments(params, real_data=False, plot=False, seed=1)
                                                                         num_assets,
                                                                         pred_params,
                                                                         control_params)
-        predicted_return, true_return = get_returns(data, investment_strategies, predicted_asset_values)
+        predicted_return, true_return = get_money(data, investment_strategies, predicted_asset_values)
         results[name] = {}
         results[name]['predicted_return'] = predicted_return
         results[name]['strategies'] = investment_strategies
@@ -255,7 +259,7 @@ def run_ltv_gaussian_experiments(params, plot=False, seed=1):
                                                                         num_assets,
                                                                         pred_params,
                                                                         control_params)
-        predicted_return, true_return = get_returns(data, investment_strategies, predicted_asset_values)
+        predicted_return, true_return = get_money(data, investment_strategies, predicted_asset_values)
         results[name] = {}
         results[name]['predicted_return'] = predicted_return
         results[name]['strategies'] = investment_strategies
@@ -320,7 +324,7 @@ def run_wiener_experiments(params, plot=False, seed=1):
                                                                         num_assets,
                                                                         pred_params,
                                                                         control_params)
-        predicted_return, true_return = get_returns(data, investment_strategies, predicted_asset_values)
+        predicted_return, true_return = get_money(data, investment_strategies, predicted_asset_values)
         results[name] = {}
         results[name]['predicted_return'] = predicted_return
         results[name]['strategies'] = investment_strategies
@@ -379,15 +383,15 @@ def run_real_mpc_experiments(pred_params, control_params, bank_rate, plot=False,
                                                                         pred_params,
                                                                         control_params,
                                                                         bank_rate)
-        predicted_return, true_return = get_returns(data, investment_strategies, predicted_asset_values, bank_rate)
+        predicted_money, true_money = get_money(data, investment_strategies, predicted_asset_values, bank_rate)
         results[name] = {}
-        results[name]['predicted_return'] = predicted_return
+        results[name]['predicted_return'] = predicted_money
         results[name]['strategies'] = investment_strategies
         results[name]['predicted_values'] = predicted_asset_values
-        results[name]['true_return'] = true_return
-        print(name, np.sum(true_return))
-        bar_plot_mean.append(np.mean(true_return))
-        bar_plot_std.append(np.std(true_return))
+        results[name]['true_return'] = true_money
+        print(name, np.sum(true_money[-1]))
+        bar_plot_mean.append(np.mean(true_money))
+        bar_plot_std.append(np.std(true_money))
         # all_error = error(predicted_return, true_return)
         # window = 10
         # for i in range(0, num_samples-window, window):
@@ -395,7 +399,7 @@ def run_real_mpc_experiments(pred_params, control_params, bank_rate, plot=False,
         if plot:
             # We really just care about how well the investment strategies actually do,
             # which is given by true_return.
-            plt.plot(np.arange(3, num_samples), true_return[3:], label=name + ' true return', alpha=0.5)
+            plt.plot(np.arange(3, num_samples), true_money[3:], label=name + ' true return', alpha=0.5)
             # In final plots, predicted return may not be relevant.
             # plt.plot(np.arange(3, num_samples), predicted_return[3:], label=name + ' predicted return')
     if plot:
@@ -434,6 +438,6 @@ if __name__ == "__main__":
                                           "regularizer": 0.001},
                              control_params={"L": 10,
                                              "theta": 2.0,
-                                             "nu": 0.1},
-                             bank_rate=1.05,
+                                             "nu": 0.01},
+                             bank_rate=1.0,
                              plot=False, seed=int(time.time()))
