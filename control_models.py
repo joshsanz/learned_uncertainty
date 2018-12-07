@@ -137,6 +137,24 @@ class MultiPeriodModel(ControlModel):
         R = self.R
         return xi * R, eta * R[:,1:], zeta * R[:, 1:]
 
+    def get_input(self, past_data, ar_projections, ar_errors):
+        L = self.L
+        # assert ar_projections.shape[0] == L-1
+
+        ar_variances = np.zeros((num_assets, L))
+        ar_variances[:, 1:] = np.repeat(ar_errors.reshape(-1, 1), L - 1, axis=1)
+
+        projections = np.ones((num_assets + 1, L))
+        projections[:-1, :] = ar_projections.T
+        variances = np.zeros((num_assets + 1, L))
+        variances[:-1, :] = ar_variances
+
+        return projections, variances
+
+    def apply_model_results(self, true_x, x, y, z):
+        return true_x
+
+
 class RobustMultiPeriodModel(ControlModel):
     """
     http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.116.559&rep=rep1&type=pdf
@@ -306,68 +324,68 @@ if __name__ == "__main__":
     # for i in range(samples.shape[1]):
     #     print(samples.T[i])
 
-    data = RealData()
-    all_samples = data.sample()
-    num_samples = 50
-    num_assets = all_samples.shape[1]
-    samples = all_samples[:num_samples]
-    for i in range(samples.shape[1]):
-        print(samples.T[i])
-
-    L = 10
-    ar = AutoRegression(L)
-    ar.fit(samples)
-    ar_projections, ar_errors = ar.predict(samples, L)
-    projection_truth = all_samples[num_samples:num_samples+L]
-    print("projection_errors", np.abs(projection_truth - ar_projections))
-
-    print("Projections:",ar_projections)
-    print(ar_projections.shape)
-    print("Errors:",ar_errors)
-    print(ar_errors.shape)
-    ar_variances = np.zeros((num_assets, L))
-    ar_variances[:,1:] = np.repeat(ar_errors.reshape(-1,1), L-1, axis=1)
-
-    projections = np.ones((num_assets+1, L))
-    projections[:-1,:] = ar_projections.T
-    print(projections)
-    variances = np.zeros((num_assets+1, L))
-    variances[:-1,:] = ar_variances
-    print(variances)
-
-    # Run models
-    mpc = MultiPeriodModel(num_assets, L-1, 2, .1)
-    rmpc = RobustMultiPeriodModel(num_assets, L-1, 2, .1)
-    x0 = np.zeros((num_assets+1,))
-    x0[-1] = 1.0
-
-    mpc.run(data=(x0, projections, None))
-
-    x, y, z = mpc.variables()
-    print("x:",x)
-    print("y:",y)
-    print("z:",z)
-    print(mpc.optima())
-
-    rmpc.run(data=(x0, np.log(projections), variances))
-
-    rx, ry, rz = rmpc.variables()
-    print("rx:",rx)
-    print("ry:",ry)
-    print("rz:",rz)
-    print(rmpc.optima())
-
-    plt.plot(x.T,label='x')
-    plt.plot(rx.T,':',label='rx')
-    plt.legend()
-    plt.show()
-
-    plt.plot(y.T,label='y')
-    plt.plot(ry.T,':',label='ry')
-    plt.legend()
-    plt.show()
-
-    plt.plot(z.T,label='z')
-    plt.plot(rz.T,':',label='rz')
-    plt.legend()
-    plt.show()
+    # data = RealData()
+    # all_samples = data.sample()
+    # num_samples = 50
+    # num_assets = all_samples.shape[1]
+    # samples = all_samples[:num_samples]
+    # for i in range(samples.shape[1]):
+    #     print(samples.T[i])
+    #
+    # L = 10
+    # ar = AutoRegression(L)
+    # ar.fit(samples)
+    # ar_projections, ar_errors = ar.predict(samples, L)
+    # projection_truth = all_samples[num_samples:num_samples+L]
+    # print("projection_errors", np.abs(projection_truth - ar_projections))
+    #
+    # print("Projections:",ar_projections)
+    # print(ar_projections.shape)
+    # print("Errors:",ar_errors)
+    # print(ar_errors.shape)
+    # ar_variances = np.zeros((num_assets, L))
+    # ar_variances[:,1:] = np.repeat(ar_errors.reshape(-1,1), L-1, axis=1)
+    #
+    # projections = np.ones((num_assets+1, L))
+    # projections[:-1,:] = ar_projections.T
+    # print(projections)
+    # variances = np.zeros((num_assets+1, L))
+    # variances[:-1,:] = ar_variances
+    # print(variances)
+    #
+    # # Run models
+    # mpc = MultiPeriodModel(num_assets, L-1, 2, .1)
+    # rmpc = RobustMultiPeriodModel(num_assets, L-1, 2, .1)
+    # x0 = np.zeros((num_assets+1,))
+    # x0[-1] = 1.0
+    #
+    # mpc.run(data=(x0, projections, None))
+    #
+    # x, y, z = mpc.variables()
+    # print("x:",x)
+    # print("y:",y)
+    # print("z:",z)
+    # print(mpc.optima())
+    #
+    # rmpc.run(data=(x0, np.log(projections), variances))
+    #
+    # rx, ry, rz = rmpc.variables()
+    # print("rx:",rx)
+    # print("ry:",ry)
+    # print("rz:",rz)
+    # print(rmpc.optima())
+    #
+    # plt.plot(x.T,label='x')
+    # plt.plot(rx.T,':',label='rx')
+    # plt.legend()
+    # plt.show()
+    #
+    # plt.plot(y.T,label='y')
+    # plt.plot(ry.T,':',label='ry')
+    # plt.legend()
+    # plt.show()
+    #
+    # plt.plot(z.T,label='z')
+    # plt.plot(rz.T,':',label='rz')
+    # plt.legend()
+    # plt.show()

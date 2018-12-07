@@ -105,6 +105,33 @@ def run_gaussian_covar(data, num_samples, num_assets, pred_params, control_param
     return predicted_asset_values, investment_strategies
 
 
+def run_real_ar_mpc(data, num_samples, num_assets, pred_params, control_params):
+
+    prediction_model = AutoRegression(**pred_params)
+    control_params["num_assets"] = num_assets
+    mpm = MultiPeriodModel(**control_params)
+    L = control_params["L"]
+
+    predicted_returns = np.zeros(shape=(num_samples, num_assets))
+    investment_strategies = np.zeros(shape=(num_samples, num_assets))
+    current_investments = np.zeros(shape=(num_assets + 1,))
+    current_investments[-1] = 1.0
+    for t in range(num_samples):
+        if t <= L:
+            continue
+        past_data = data[:t]
+        prediction_model.fit(past_data)
+        predicted_return, predicted_return_error = prediction_model.predict(past_data, L)
+        control_inputs = mpm.get_input(past_data, predicted_return, predicted_return_error)
+
+        control_inputs = (current_investments, control_inputs[0], control_inputs[1])
+        mpm.run(*control_inputs)
+        current_investments = mpm.apply_model_results(*mpm.variables())
+        investment_strategies[t] = current_investments
+
+    return predicted_returns, investment_strategies
+
+
 def run_simple_gaussian_experiments(params, real_data=False, plot=False, seed=1):
     if not real_data:
         num_samples = 100
@@ -314,24 +341,89 @@ def run_wiener_experiments(params, plot=False, seed=1):
     return results
 
 
+def run_real_mpc_experiments(pred_params, control_params, plot=False, seed=1):
+    data_labels, data_dates, data = get_real_data()
+    print("date range:", data_dates[0][0], "-", data_dates[0][-1])
+    num_samples = data.shape[0]
+    num_assets = data.shape[1]
+
+    if plot:
+        for i in range(num_assets):
+            plt.plot(data.T[i], label=data_labels[i])
+        plt.legend()
+        plt.title('Input Data')
+        plt.show()
+
+    # Add experiments to run here.
+    experiments = [
+        ("run_real_ar_mpc", run_real_ar_mpc, pred_params, control_params),
+    ]
+
+    bar_plot_mean = []
+    bar_plot_std = []
+
+    results = {}
+    results['true_values'] = data
+    for name, experiment_func, pred_params, control_params in experiments:
+        predicted_asset_values, investment_strategies = experiment_func(data,
+                                                                        num_samples,
+                                                                        num_assets,
+                                                                        pred_params,
+                                                                        control_params)
+        predicted_return, true_return = get_returns(data, investment_strategies, predicted_asset_values)
+        results[name] = {}
+        results[name]['predicted_return'] = predicted_return
+        results[name]['strategies'] = investment_strategies
+        results[name]['predicted_values'] = predicted_asset_values
+        results[name]['true_return'] = true_return
+        print(name, np.sum(true_return))
+        bar_plot_mean.append(np.mean(true_return))
+        bar_plot_std.append(np.std(true_return))
+        # all_error = error(predicted_return, true_return)
+        # window = 10
+        # for i in range(0, num_samples-window, window):
+        #     print(name, np.mean(all_error[i:i + window]))
+        if plot:
+            # We really just care about how well the investment strategies actually do,
+            # which is given by true_return.
+            plt.plot(np.arange(3, num_samples), true_return[3:], label=name + ' true return', alpha=0.5)
+            # In final plots, predicted return may not be relevant.
+            # plt.plot(np.arange(3, num_samples), predicted_return[3:], label=name + ' predicted return')
+    if plot:
+        plt.legend()
+        plt.show()
+
+        plt.bar(np.arange(len(experiments)), height=bar_plot_mean, yerr=bar_plot_std)
+        plt.show()
+
+    return results
+
+
 if __name__ == "__main__":
-    run_simple_gaussian_experiments(params={'gamma': 1,
-                                            'window': 10},
-                                    real_data=True,
-                                    plot=True, seed=int(time.time()))
-    run_simple_gaussian_experiments(params={'asset_value': np.array([0.8, 1.0, 1.1]),
-                                            'asset_covariance': np.diag([0.02, 0.01, 0.03]),
-                                            'gamma': 1,
-                                            'window': 10},
-                                    plot=True, seed=int(time.time()))
-    run_ltv_gaussian_experiments(params={'asset_value': np.array([0.9, 1.2, 1.0]),
-                                         'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
-                                         'asset_delta': np.array([[0.002, -0.003, 0.001]]),
-                                         'gamma': 1,
-                                         'window': 10},
-                                 plot=True, seed=int(time.time()))
-    run_wiener_experiments(params={'asset_value': np.array([0.9, 1.2, 1.0]),
-                                   'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
-                                   'gamma': 1,
-                                   'window': 10},
-                           plot=True, seed=int(time.time()))
+    # run_simple_gaussian_experiments(params={'gamma': 1,
+    #                                         'window': 10},
+    #                                 real_data=True,
+    #                                 plot=True, seed=int(time.time()))
+    # run_simple_gaussian_experiments(params={'asset_value': np.array([0.8, 1.0, 1.1]),
+    #                                         'asset_covariance': np.diag([0.02, 0.01, 0.03]),
+    #                                         'gamma': 1,
+    #                                         'window': 10},
+    #                                 plot=True, seed=int(time.time()))
+    # run_ltv_gaussian_experiments(params={'asset_value': np.array([0.9, 1.2, 1.0]),
+    #                                      'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
+    #                                      'asset_delta': np.array([[0.002, -0.003, 0.001]]),
+    #                                      'gamma': 1,
+    #                                      'window': 10},
+    #                              plot=True, seed=int(time.time()))
+    # run_wiener_experiments(params={'asset_value': np.array([0.9, 1.2, 1.0]),
+    #                                'asset_covariance': np.diag([1.0, 1.0, 0.2]) * 0.02,
+    #                                'gamma': 1,
+    #                                'window': 10},
+    #                        plot=True, seed=int(time.time()))
+
+    run_real_mpc_experiments(pred_params={"p": 10,
+                                          "regularizer": 0.001},
+                             control_params={"L": 10,
+                                             "theta": 2.0,
+                                             "nu": 0.1},
+                             plot=False, seed=int(time.time()))

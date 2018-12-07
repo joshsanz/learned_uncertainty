@@ -129,7 +129,7 @@ class OneDimensionalAutoRegression(object):
                 np.matmul(X.transpose(),y))
 
     def predict(self, r, n):
-        assert(r.shape[0] > self.p + 10), "Need at least 10 points to estimate uncertainty"
+        assert(r.shape[0] >= self.p), "Need at least " + str(p) + " points to estimate uncertainty"
         uX, uY = self.to_mat(r)
         err = np.max(np.abs(np.matmul(uX, self.w) - uY))
         plen = self.w.shape[0]
