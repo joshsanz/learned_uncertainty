@@ -1,4 +1,6 @@
-import numpy as np
+import autograd as ag
+import autograd.numpy as np
+import matplotlib.pyplot as plt
 
 
 class PredictionModel(object):
@@ -13,10 +15,10 @@ class PredictionModel(object):
         pass
 
 
-class UnbiasEstimator(PredictionModel):
+class UnbiasGaussianEstimator(PredictionModel):
 
     def __init__(self):
-        super(PredictionModel, UnbiasEstimator).__init__(self)
+        super(PredictionModel, UnbiasGaussianEstimator).__init__(self)
 
     def sample_mean(self, samples):
         return np.mean(samples, axis=0)
@@ -24,29 +26,87 @@ class UnbiasEstimator(PredictionModel):
     def sample_covariance(self, samples):
         return np.cov(samples, rowvar=False)
 
-    def predict(self, samples, assume_diag=True):
-        covar = self.sample_covariance(samples)
-        if covar.shape == ():
-            covar = covar.reshape(1, 1)
-        if assume_diag:
-            covar = np.diag(np.diag(covar))
-        return self.sample_mean(samples), covar
+    def predict(self, samples, assume_diag=True, p=1):
+        projected_means = np.empty(shape=(p, samples.shape[1]))
+        projected_covariance = np.empty(shape=(p, samples.shape[1], samples.shape[1]))
+        projected_samples = samples
+        for i in range(p):
+            projected_means[i] = self.sample_mean(projected_samples)
+            covar = self.sample_covariance(projected_samples)
+            if covar.shape == ():
+                covar = covar.reshape(1, 1)
+            if assume_diag:
+                covar = np.diag(np.diag(covar))
+            projected_covariance[i, :, :] = covar
+            projected_samples = np.vstack((projected_samples, projected_means[i]))
+
+        if p == 1:
+            return projected_means[0], projected_covariance[0]
+        else:
+            return projected_means, projected_covariance
+
+
+class OneDimensionalAutoRegression(PredictionModel):
+
+    def __init__(self, L, learning_rate=0.2, seed=1):
+        super(PredictionModel, OneDimensionalAutoRegression).__init__(self)
+        self.r = np.random.RandomState(seed=seed)
+        self.w = None
+        self.L = L
+        self.samples = None
+        self.grad_loss = ag.grad(self.loss, 0)
+        self.learning_rate = learning_rate
+
+    def loss(self, w, r, p):
+        k = r.shape[0]
+        sum_outer = 0
+        for t in range(k):
+            sum_inner = - r[t]
+            for i in range(p):
+                if i < t:
+                    continue
+                sum_inner += w[i] * r[t-i]
+            sum_inner = sum_inner**2
+            sum_outer += sum_inner
+        return sum_outer
+
+    def fit(self, samples):
+        if len(samples.shape) != 1:
+            assert len(samples.shape) == 2
+            assert samples.shape[1] == 1
+        self.samples = samples.flatten()
+        self.w = self.r.rand(self.L)
+        for i in range(1000):
+            self.w -= self.learning_rate*self.grad_loss(self.w, self.samples, self.L)
+            print(self.loss(self.w, self.samples, self.L))
 
 
 if __name__ == "__main__":
-    from data_models import GaussianNoise
+    num_samples = 100
+    sine_samples = np.sin(np.linspace(0, 2 * np.pi, num_samples))
 
-    num_samples = 1000
-    num_assets = 3
+    ar = OneDimensionalAutoRegression(10)
+    ar.fit(sine_samples)
 
-    mu_truth = np.ones(num_assets)
-    sigma_truth = np.diag([0.5, 0.3, 0.2])
-    sampler = GaussianNoise()
+    plt.plot(np.arange(num_samples), sine_samples)
+    plt.show()
 
-    data = np.zeros(shape=(num_samples, num_assets))
-    for i in range(num_samples):
-        data[i] = sampler.sample((mu_truth, sigma_truth))
-
-    sample_mean, sample_variance = UnbiasEstimator().predict(data)
-    for i in range(num_assets):
-        print(sample_mean[i], sample_variance[i])
+    # from data_models import GaussianNoise
+    #
+    # num_samples = 1000
+    # num_assets = 3
+    #
+    # mu_truth = np.ones(num_assets)
+    # sigma_truth = np.diag([0.5, 0.3, 0.2])
+    # sampler = GaussianNoise()
+    #
+    # data = np.zeros(shape=(num_samples, num_assets))
+    # for i in range(num_samples):
+    #     data[i] = sampler.sample((mu_truth, sigma_truth))
+    #
+    # L = 3
+    # sample_mean, sample_variance = UnbiasGaussianEstimator().predict(data, True, L)
+    # for l in range(L):
+    #     print("\n projection", l)
+    #     for i in range(num_assets):
+    #         print(sample_mean[l][i], sample_variance[l][i])

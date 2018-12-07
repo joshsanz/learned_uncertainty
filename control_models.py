@@ -133,10 +133,56 @@ class MultiPeriodModel(ControlModel):
         return zeta * R, eta * R[:,1:], xi * R[:, 1:]
 
 
+class MultiPeriodModelSimple(ControlModel):
+    """
+    Equation 1.5
+    """
+    def __init__(self, num_assets, L, mu, v):
+        self.L = L # planning horizon
+        self.mu = mu
+        self.v = v
+        self.num_assets = num_assets
+        self.x = cvx.Variable((num_assets, L + 1))
+        self.y = cvx.Variable((num_assets, L))
+        self.z = cvx.Variable((num_assets, L))
+        self.problem = None
+        self._optima = None
+
+    def run(self, data):
+        # TODO (hme): Finish imp.
+        x0, r, _ = data
+        assert r.shape == (self.num_assets, self.L + 1)
+
+        objective = cvx.Maximize(r[:, self.L].T * self.x[:, self.L])
+        constraints = [
+            self.x >= 0, self.z >= 0, self.y >= 0,
+       ]
+        for l in range(1, self.L + 1):
+            for i in range(1, self.L + 1):
+                # Equation 1.9
+                constraints += [
+                    self.x[i:, l] == r[:, l-1] @ self.x[:, l-1] - self.y[:, l - 1] + self.z[:, l - 1],
+                ]
+
+        # self.x[:, l] <= self.x[:, l - 1] + A[:, l - 1].T @ self.y[:, l - 1] - B[:, l - 1] @ self.z[:, l - 1]
+
+        self.problem = cvx.Problem(objective, constraints)
+        self._optima = self.problem.solve()
+        print(self.problem.status)
+
+    def optima(self):
+        return self._optima
+
+    def variables(self):
+        x = self.x.value
+        y = self.y.value
+        z = self.z.value
+        return x, y, z
+
 
 if __name__ == "__main__":
     from data_models import GaussianNoise
-    from prediction_models import UnbiasEstimator
+    from prediction_models import UnbiasGaussianEstimator
 
     num_samples = 1000
     num_assets = 3
@@ -150,7 +196,7 @@ if __name__ == "__main__":
     for i in range(num_samples):
         data[i] = sampler.sample((mu_truth, sigma_truth))
 
-    sample_mean, sample_covar = UnbiasEstimator().predict(data)
+    sample_mean, sample_covar = UnbiasGaussianEstimator().predict(data)
 
     for i in range(num_assets):
         print(sample_mean[i], sample_covar[i])
