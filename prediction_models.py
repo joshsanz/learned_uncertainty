@@ -76,40 +76,53 @@ class OneDimensionalAutoRegression(object):
         self.p = p
         self.regularizer = regularizer
 
-    def fit(self, samples):
-        assert(samples.shape[0] > self.p), "Number of samples are less than autoregression length"
+    def to_mat(self, samples):
         X = np.zeros([samples.shape[0]-self.p, self.p])
-        self.regularizer = 0.001
         for i in range(samples.shape[0] - self.p):
             X[i] = samples[i:i+self.p]
         y = samples[self.p:]
+        return X, y
+
+    def fit(self, samples):
+        assert(samples.shape[0] > self.p), "Number of samples are less than autoregression length"
+        X, y = self.to_mat(samples)
+        self.regularizer = 0.0001
         self.w = np.matmul(\
                 np.linalg.inv(np.matmul(X.transpose(),X) + self.regularizer * np.identity(X.shape[1])),\
                 np.matmul(X.transpose(),y))
 
     def predict(self, r, n):
+        assert(r.shape[0] > self.p + 10), "Need atleast 10 points to estimate uncertainty"
+        uX, uY = self.to_mat(r) 
+        err = np.max(np.abs(np.matmul(uX, self.w) - uY))
         plen = self.w.shape[0]
         pred = np.zeros([n + plen])
         pred[0:plen] = r[-plen:]
         for i in range(n):
             pred[plen + i] = np.dot(pred[i:i+plen], self.w)
-        return pred[-n:]
+        return pred[-n:], err
+
+def test_autoregress(noise = 0.1):
+    num_samples = 1000
+    sine_samples = np.sin(np.linspace(0, 10 * np.pi, num_samples))
+    reg_len = 40
+    sine_samples += np.random.normal(0, noise, sine_samples.shape[0]) 
+    ar = OneDimensionalAutoRegression(reg_len)
+    ar.fit(sine_samples)
+    
+    num_project = 500
+    pred_sine, err = ar.predict(sine_samples, num_project)
+    plt.plot(np.arange(num_samples), sine_samples)
+    plt.plot(np.arange(num_samples-1, num_samples+num_project-1), pred_sine, linewidth = 1.0 + 5.0*err, alpha = 0.5)
+    plt.savefig('test_plots/test_regression.png')
+    plt.close()
+    print(err)
 
 if __name__ == "__main__":
     from data_models import GaussianNoise
-
-    # num_samples = 100
-    # sine_samples = np.sin(np.linspace(0, 10 * np.pi, num_samples))
-    # reg_len = 20
-    #
-    # ar = OneDimensionalAutoRegression(reg_len)
-    # ar.fit(sine_samples)
-    #
-    # num_project = 100
-    # pred_sine = ar.predict(sine_samples, num_project)
-    # plt.plot(np.arange(num_samples), sine_samples)
-    # plt.plot(np.arange(num_samples-1, num_samples+num_project-1), pred_sine, linewidth = 10, alpha = 0.5)
-    # plt.show()
+    
+    import pdb; pdb.set_trace()
+    test_autoregress()
 
     num_samples = 1000
     num_assets = 3
@@ -128,7 +141,6 @@ if __name__ == "__main__":
     prediction = ar.predict(data, L)
     for l in range(L):
         print("\n prediction", l, prediction[l])
-
     # num_samples = 1000
     # num_assets = 3
     #
