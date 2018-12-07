@@ -71,14 +71,14 @@ class OneDimensionalAutoRegression(PredictionModel):
         return sum_outer
 
     def fit(self, samples):
-        if len(samples.shape) != 1:
-            assert len(samples.shape) == 2
-            assert samples.shape[1] == 1
-        self.samples = samples.flatten()
-        self.w = self.r.rand(self.p)
-        for i in range(10):
-            self.w -= self.learning_rate*self.grad_loss(self.w, self.samples, self.p)
-            print(self.loss(self.w, self.samples, self.p))
+        X = np.zeros([samples.shape[0]-self.p, self.p])
+        regularizer = 0.001
+        for i in range(samples.shape[0] - self.p):
+            X[i] = samples[i:i+self.p]
+        y = samples[self.p:]
+        self.w = np.matmul(\
+                np.linalg.inv(np.matmul(X.transpose(),X) + regularizer * np.identity(X.shape[1])),\
+                np.matmul(X.transpose(),y))
 
     #def toToepMat(x, L):
     #    mat = np.zeros(x.shape[0]-L, L)
@@ -107,10 +107,9 @@ if __name__ == "__main__":
     ar.fit(sine_samples)
 
     pred_sine = [0 for i in range(len(sine_samples))]
-    pred_sine = ar.predict(sine_samples, 5) 
-    import pdb; pdb.set_trace()
+    pred_sine = [ar.predict(sine_samples[i:i+reg_len], 1)[0] for i in range(num_samples - reg_len)] 
     plt.plot(np.arange(num_samples), sine_samples)
-    plt.plot(np.arange(reg_len,num_samples), pred_sine)
+    plt.plot(np.arange(reg_len,num_samples), pred_sine, linewidth = 10, alpha = 0.5)
     plt.savefig('autograd_test.png')
     #plt.show()
 
