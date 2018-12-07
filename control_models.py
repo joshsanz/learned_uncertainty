@@ -182,41 +182,114 @@ class RobustMultiPeriodModel(ControlModel):
         return zeta * R, eta * R[:,1:], xi * R[:, 1:]
 
 
+# class MultiPeriodModelSimple(ControlModel):
+#     """
+#     Equation 1.5
+#     """
+#     def __init__(self, num_assets, L, mu, v):
+#         self.L = L # planning horizon
+#         self.mu = mu
+#         self.v = v
+#         self.num_assets = num_assets
+#         self.x = cvx.Variable((num_assets, L + 1))
+#         self.y = cvx.Variable((num_assets, L))
+#         self.z = cvx.Variable((num_assets, L))
+#         self.problem = None
+#         self._optima = None
+#
+#     def run(self, data):
+#         # TODO (hme): Finish imp.
+#         x0, r, _ = data
+#         assert r.shape == (self.num_assets, self.L + 1)
+#
+#         objective = cvx.Maximize(r[:, self.L].T * self.x[:, self.L])
+#         constraints = [
+#             self.x >= 0, self.z >= 0, self.y >= 0,
+#        ]
+#         for l in range(1, self.L + 1):
+#             for i in range(1, self.num_assets - 1):
+#                 # Equation 1.5
+#                 constraints += [
+#                     self.x[i, l] == r[i, l-1] @ self.x[i, l-1] - self.y[i, l] + self.z[i, l],
+#                 ]
+#         # self.x[n+1, l] <= self.x[:, l - 1] + A[:, l - 1].T @ self.y[:, l - 1] - B[:, l - 1] @ self.z[:, l - 1]
+#
+#         self.problem = cvx.Problem(objective, constraints)
+#         self._optima = self.problem.solve()
+#         print(self.problem.status)
+#
+#     def optima(self):
+#         return self._optima
+#
+#     def variables(self):
+#         x = self.x.value
+#         y = self.y.value
+#         z = self.z.value
+#         return x, y, z
+
 
 if __name__ == "__main__":
-    from data_models import GaussianNoise
-    from prediction_models import UnbiasEstimator
+    from data_models import GaussianNoise, NoisySine
+    from prediction_models import UnbiasGaussianEstimator, AutoRegression
 
     num_samples = 1000
     num_assets = 3
 
-    mu_truth = np.ones(num_assets)
-    sigma_truth = np.diag([0.5, 0.3, 0.2])
+    # mu_truth = np.ones(num_assets)
+    # sigma_truth = np.diag([0.5, 0.3, 0.2])
+    #
+    # sampler = GaussianNoise()
+    # data = np.zeros(shape=(num_samples, num_assets))
+    #
+    # for i in range(num_samples):
+    #     data[i] = sampler.sample((mu_truth, sigma_truth))
+    #
+    # sample_mean, sample_covar = UnbiasGaussianEstimator().predict(data)
+    #
+    # for i in range(num_assets):
+    #     print(sample_mean[i], sample_covar[i])
 
-    sampler = GaussianNoise()
-    data = np.zeros(shape=(num_samples, num_assets))
-
-    for i in range(num_samples):
-        data[i] = sampler.sample((mu_truth, sigma_truth))
-
-    sample_mean, sample_covar = UnbiasEstimator().predict(data)
-
-    for i in range(num_assets):
-        print(sample_mean[i], sample_covar[i])
-
+    # mpc = MultiPeriodModel(num_assets, 2, 2, .1)
+    # x0 = np.ones((num_assets,)) / num_assets
+    # sample_mean[0] = 1.1
+    # sample_mean[1] = 0.9
+    # means = np.repeat(sample_mean.reshape(-1, 1), 3, 1)
+    # covs = np.repeat(sample_covar.reshape(-1, 1), 3, 1)
+    # mpc.run(data=(x0, means, covs))
+    #
+    # x, y, z = mpc.variables()
+    # print("x:", x)
+    # print("y:", y)
+    # print("z:", z)
+    # print(mpc.optima())
+    #
     # cov_model = CovarianceModel(num_assets=num_assets)
     # cov_model.run(data=(sample_mean, sample_covar), gamma=1.0)
 
     # print(cov_model.variables())
     # print(cov_model.optima())
 
-    mpc = MultiPeriodModel(num_assets, 2, 2, .1)
-    x0 = np.ones((num_assets,)) / num_assets
-    sample_mean[0] = 1.1
-    sample_mean[1] = 0.9
-    means = np.repeat(sample_mean.reshape(-1,1), 3, 1)
-    covs = np.repeat(sample_covar.reshape(-1,1), 3, 1)
-    mpc.run(data=(x0, means, covs))
+    data = NoisySine()
+    phase = np.array([1., .5, 2.])
+    noise = np.array([0.5, 0.3, 0.2])
+    samples = data.sample((phase, noise, 20))
+    for i in range(samples.shape[1]):
+        print(samples.T[i])
+
+    L = 5
+    ar = AutoRegression(L)
+    ar.fit(samples)
+    ar_projections, ar_errors = ar.predict(samples, L)
+    print("Projections:",ar_projections)
+    print(ar_projections.shape)
+    print("Errors:",ar_errors)
+    print(ar_errors.shape)
+
+    # Something goes wrong; dimension of assets != dimension of horizon?
+    mpc = MultiPeriodModel(num_assets, 4, 2, .1)
+    x0 = np.zeros((num_assets,))
+    x0[-1] = 1.0
+    mpc.run(data=(x0, ar_projections.T, None))
 
     x, y, z = mpc.variables()
     print("x:",x)

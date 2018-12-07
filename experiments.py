@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use('tkagg')
 from matplotlib import pyplot as plt
+plt.rc('figure', figsize=[10, 6])
 
 import time
 
@@ -53,7 +54,7 @@ def run_gaussian_norm(data, num_samples, num_assets, pred_params, control_params
     gamma = control_params['gamma']
     regularization = control_params['regularization']
 
-    prediction_model = UnbiasEstimator()
+    prediction_model = UnbiasGaussianEstimator()
     window = pred_params['window']
     cov_model = NormModel(num_assets=num_assets, gamma=gamma, regularization=regularization)
 
@@ -80,7 +81,7 @@ def run_gaussian_norm(data, num_samples, num_assets, pred_params, control_params
 def run_gaussian_covar(data, num_samples, num_assets, pred_params, control_params):
     gamma = control_params['gamma']
 
-    prediction_model = UnbiasEstimator()
+    prediction_model = UnbiasGaussianEstimator()
     window = pred_params['window']
     cov_model = CovarianceModel(num_assets=num_assets, gamma=gamma)
 
