@@ -256,7 +256,7 @@ class RobustMultiPeriodModel(ControlModel):
 
 
 if __name__ == "__main__":
-    from data_models import GaussianNoise, NoisySine
+    from data_models import GaussianNoise, NoisySine, RealData
     from prediction_models import UnbiasGaussianEstimator, AutoRegression
 
     num_samples = 1000
@@ -296,17 +296,29 @@ if __name__ == "__main__":
     # print(cov_model.variables())
     # print(cov_model.optima())
 
-    data = NoisySine()
-    phase = np.array([1., .5, 2.])
-    noise = np.array([0.1, 0.03, 0.2])
-    samples = data.sample((phase, noise, 20))
+    # noisy sine
+    # data = NoisySine()
+    # phase = np.array([1., .5, 2.])
+    # noise = np.array([0.1, 0.03, 0.2])
+    # samples = data.sample((phase, noise, 20))
+    # for i in range(samples.shape[1]):
+    #     print(samples.T[i])
+
+    data = RealData()
+    all_samples = data.sample()
+    num_samples = 50
+    num_assets = all_samples.shape[1]
+    samples = all_samples[:num_samples]
     for i in range(samples.shape[1]):
         print(samples.T[i])
 
-    L = 5
+    L = 10
     ar = AutoRegression(L)
     ar.fit(samples)
     ar_projections, ar_errors = ar.predict(samples, L)
+    projection_truth = all_samples[num_samples:num_samples+L]
+    print("projection_errors", np.abs(projection_truth - ar_projections))
+
     print("Projections:",ar_projections)
     print(ar_projections.shape)
     print("Errors:",ar_errors)
@@ -314,9 +326,8 @@ if __name__ == "__main__":
     ar_variances = np.zeros((num_assets, L))
     ar_variances[:,1:] = np.repeat(ar_errors.reshape(-1,1), L-1, axis=1)
 
-    # Something goes wrong; dimension of assets != dimension of horizon?
-    mpc = MultiPeriodModel(num_assets, 4, 2, .1)
-    rmpc = RobustMultiPeriodModel(num_assets, 4, 2, .1)
+    mpc = MultiPeriodModel(num_assets, L-1, 2, .1)
+    rmpc = RobustMultiPeriodModel(num_assets, L-1, 2, .1)
     x0 = np.zeros((num_assets,))
     x0[-1] = 1.0
     mpc.run(data=(x0, ar_projections.T, None))

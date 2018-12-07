@@ -22,7 +22,7 @@ class PredictionModel(object):
 class UnbiasGaussianEstimator(PredictionModel):
 
     def __init__(self):
-        super(PredictionModel, UnbiasGaussianEstimator).__init__(self)
+        super(UnbiasGaussianEstimator, self).__init__()
 
     def sample_mean(self, samples):
         return np.mean(samples, axis=0)
@@ -54,7 +54,7 @@ class LogNormalMLE(UnbiasGaussianEstimator):
 
     def __init__(self):
         # https://www.wikiwand.com/en/Log-normal_distribution#/Maximum_likelihood_estimation_of_parameters
-        super(PredictionModel, UnbiasGaussianEstimator).__init__(self)
+        super(LogNormalMLE, self).__init__()
 
     def sample_mean(self, samples):
         return np.mean(np.log(samples), axis=0)
@@ -63,19 +63,21 @@ class LogNormalMLE(UnbiasGaussianEstimator):
         return np.sqrt(np.cov(np.log(samples), rowvar=False, bias=True))
 
 
-class AutoRegression(PredictionModel):
+class AutoRegressionBase(PredictionModel):
 
-    def __init__(self, p, regularizer=0.001):
+    def __init__(self, p, predictor_cls, regularizer=0.001):
+        super(AutoRegressionBase, self).__init__()
         self.p = p
         self.data = None
         self.models = None
         self.regularizer = regularizer
+        self.predictor_cls = predictor_cls
 
     def fit(self, samples):
         self.data = samples.T
         self.models = []
         for i in range(self.data.shape[0]):
-            model = OneDimensionalAutoRegression(self.p, self.regularizer)
+            model = self.predictor_cls(self.p, self.regularizer)
             model.fit(self.data[i])
             self.models.append(model)
 
@@ -88,18 +90,20 @@ class AutoRegression(PredictionModel):
         return predictions, errors
 
 
-class LogAutoRegression(AutoRegression):
+class AutoRegression(AutoRegressionBase):
 
     def __init__(self, p, regularizer=0.001):
-        super(LogAutoRegression, self).__init__(p, regularizer)
+        super(AutoRegression, self).__init__(p,
+                                             predictor_cls=OneDimensionalAutoRegression,
+                                             regularizer=regularizer)
 
-    def fit(self, samples):
-        self.data = samples.T
-        self.models = []
-        for i in range(self.data.shape[0]):
-            model = OneDimensionalLogAutoRegression(self.p, self.regularizer)
-            model.fit(self.data[i])
-            self.models.append(model)
+
+class LogAutoRegression(AutoRegressionBase):
+
+    def __init__(self, p, regularizer=0.001):
+        super(LogAutoRegression, self).__init__(p,
+                                                predictor_cls=OneDimensionalLogAutoRegression,
+                                                regularizer=regularizer)
 
 
 class OneDimensionalAutoRegression(object):
@@ -136,20 +140,11 @@ class OneDimensionalAutoRegression(object):
         return pred[-n:], err
 
 
-class OneDimensionalLogAutoRegression(object):
+class OneDimensionalLogAutoRegression(OneDimensionalAutoRegression):
 
     def __init__(self, p, regularizer=0.001):
-        self.w = None
-        self.p = p
-        self.regularizer = regularizer
-
-    def to_mat(self, samples):
-        X = np.zeros([samples.shape[0]-self.p, self.p])
-        for i in range(samples.shape[0] - self.p):
-            X[i] = samples[i:i+self.p]
-        y = samples[self.p:]
-        return X, y
-
+        super(OneDimensionalLogAutoRegression, self).__init__(p,
+                                                              regularizer=regularizer)
     def fit(self, samples):
         assert(samples.shape[0] > self.p), "Number of samples are less than autoregression length"
         X, y = self.to_mat(samples)
@@ -190,6 +185,7 @@ def test_autoregress(noise = 0.1):
     plt.savefig('test_plots/test_regression.png')
     plt.close()
     print(err)
+
 
 if __name__ == "__main__":
     from data_models import GaussianNoise
@@ -246,5 +242,4 @@ if __name__ == "__main__":
     samples = np.random.lognormal(123, 67, num_samples).reshape(num_samples, 1)
     ln_mle = LogNormalMLE()
     mean, var = ln_mle.predict(samples)
-    print(123, 7)
     print(mean, var)
