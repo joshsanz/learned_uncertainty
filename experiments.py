@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use('tkagg')
 from matplotlib import pyplot as plt
+plt.rc('figure', figsize=[10, 6])
 
 import time
 

@@ -36,7 +36,7 @@ class NoisySine(DataModel):
         phases, noise, num_samples = data
         result = np.zeros(shape=(num_samples, phases.shape[0]))
         for i in range(len(phases)):
-            result[:, i] = np.sin(np.linspace(phases[i], 2*np.pi, num_samples)) + self.r.normal(0, noise[i])
+            result[:, i] = 0.1 * np.sin(np.linspace(phases[i], 2*np.pi, num_samples)) + self.r.normal(1, noise[i])
         return result
 
 

@@ -231,12 +231,16 @@ if __name__ == "__main__":
     ar = AutoRegression(L)
     ar.fit(samples)
     ar_projections, ar_errors = ar.predict(samples, L)
+    print("Projections:",ar_projections)
+    print(ar_projections.shape)
+    print("Errors:",ar_errors)
+    print(ar_errors.shape)
 
     # Something goes wrong; dimension of assets != dimension of horizon?
-    mpc = MultiPeriodModel(num_assets, 2, 2, .1)
+    mpc = MultiPeriodModel(num_assets, 4, 2, .1)
     x0 = np.zeros((num_assets,))
     x0[-1] = 1.0
-    mpc.run(data=(x0, ar_projections, None))
+    mpc.run(data=(x0, ar_projections.T, None))
 
     x, y, z = mpc.variables()
     print("x:",x)

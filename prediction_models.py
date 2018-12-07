@@ -1,7 +1,10 @@
 # import autograd as ag
 # import autograd.numpy as np
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('tkagg')
+from matplotlib import pyplot as plt
+plt.rc('figure', figsize=[10, 6])
 
 
 class PredictionModel(object):
@@ -109,7 +112,7 @@ class OneDimensionalAutoRegression(object):
 
     def predict(self, r, n):
         assert(r.shape[0] > self.p + 10), "Need atleast 10 points to estimate uncertainty"
-        uX, uY = self.to_mat(r) 
+        uX, uY = self.to_mat(r)
         err = np.max(np.abs(np.matmul(uX, self.w) - uY))
         plen = self.w.shape[0]
         pred = np.zeros([n + plen])
@@ -123,10 +126,10 @@ def test_autoregress(noise = 0.1):
     num_samples = 1000
     sine_samples = np.sin(np.linspace(0, 10 * np.pi, num_samples))
     reg_len = 40
-    sine_samples += np.random.normal(0, noise, sine_samples.shape[0]) 
+    sine_samples += np.random.normal(0, noise, sine_samples.shape[0])
     ar = OneDimensionalAutoRegression(reg_len)
     ar.fit(sine_samples)
-    
+
     num_project = 500
     pred_sine, err = ar.predict(sine_samples, num_project)
     plt.plot(np.arange(num_samples), sine_samples)
@@ -137,7 +140,7 @@ def test_autoregress(noise = 0.1):
 
 if __name__ == "__main__":
     from data_models import GaussianNoise
-    
+
     # import pdb; pdb.set_trace()
     # test_autoregress()
 
