@@ -98,9 +98,9 @@ class MultiPeriodModel(ControlModel):
         self.nu = nu # transaction cost
         self.num_assets = num_assets
         self.R = None
-        self.xi = cvx.Variable((num_assets, L+1))
-        self.eta = cvx.Variable((num_assets, L))
-        self.zeta = cvx.Variable((num_assets, L))
+        self.xi = cvx.Variable((num_assets+1, L+1))
+        self.eta = cvx.Variable((num_assets+1, L))
+        self.zeta = cvx.Variable((num_assets+1, L))
         self.omega = cvx.Variable()
         self.problem = None
         self._optima = None
@@ -115,7 +115,8 @@ class MultiPeriodModel(ControlModel):
         objective = cvx.Maximize(self.omega)
         constraints = [self.omega <= self.R[:,self.L].T @ self.xi[:,-1],
                        self.zeta >= 0, self.xi >= 0, self.eta >= 0,
-                       self.xi[:,0] == np.divide(x0, self.R[:,0])]
+                       self.xi[:,0] == np.divide(x0, self.R[:,0]),
+                       self.xi[-1,1:] == 0]
         A = (1 - self.nu) * self.R
         B = (1 + self.nu) * self.R
         for l in range(1, self.L + 1):
@@ -150,9 +151,9 @@ class RobustMultiPeriodModel(ControlModel):
         self.nu = nu # transaction cost
         self.num_assets = num_assets
         self.R = None
-        self.zeta = cvx.Variable((num_assets, L+1))
-        self.xi = cvx.Variable((num_assets, L))
-        self.eta = cvx.Variable((num_assets, L))
+        self.zeta = cvx.Variable((num_assets+1, L+1))
+        self.xi = cvx.Variable((num_assets+1, L))
+        self.eta = cvx.Variable((num_assets+1, L))
         self.omega = cvx.Variable()
         self.problem = None
         self._optima = None
@@ -185,7 +186,8 @@ class RobustMultiPeriodModel(ControlModel):
         objective = cvx.Maximize(self.omega)
         constraints = [self.omega <= pLp1 @ self.zeta[:,self.L] - self.theta * cvx.quad_form(self.xi[:,-1], VLp1),
                        self.zeta >= 0, self.xi >= 0, self.eta >= 0,
-                       self.zeta[:,0] == np.divide(x0, self.R[:,0])]
+                       self.zeta[:,0] == np.divide(x0, self.R[:,0]),
+                       self.xi[-1,1:] == 0]
         alpha = (1 - self.nu) * self.R
         beta = (1 + self.nu) * self.R
         for l in range(1, self.L + 1):
@@ -326,18 +328,28 @@ if __name__ == "__main__":
     ar_variances = np.zeros((num_assets, L))
     ar_variances[:,1:] = np.repeat(ar_errors.reshape(-1,1), L-1, axis=1)
 
+    projections = np.ones((num_assets+1, L))
+    projections[:-1,:] = ar_projections.T
+    print(projections)
+    variances = np.zeros((num_assets+1, L))
+    variances[:-1,:] = ar_variances
+    print(variances)
+
+    # Run models
     mpc = MultiPeriodModel(num_assets, L-1, 2, .1)
     rmpc = RobustMultiPeriodModel(num_assets, L-1, 2, .1)
-    x0 = np.zeros((num_assets,))
+    x0 = np.zeros((num_assets+1,))
     x0[-1] = 1.0
-    mpc.run(data=(x0, ar_projections.T, None))
-    rmpc.run(data=(x0, np.log(ar_projections.T), ar_variances))
+
+    mpc.run(data=(x0, projections, None))
 
     x, y, z = mpc.variables()
     print("x:",x)
     print("y:",y)
     print("z:",z)
     print(mpc.optima())
+
+    rmpc.run(data=(x0, np.log(projections), variances))
 
     rx, ry, rz = rmpc.variables()
     print("rx:",rx)
