@@ -127,8 +127,10 @@ class MultiPeriodModel(ControlModel):
 
     def variables(self):
         zeta = self.zeta.value
+        eta = self.eta.value
+        xi = self.xi.value
         R = self.R
-        return zeta * R
+        return zeta * R, eta * R[:,1:], xi * R[:, 1:]
 
 
 
@@ -167,5 +169,8 @@ if __name__ == "__main__":
     covs = np.repeat(sample_covar.reshape(-1,1), 3, 1)
     mpc.run(data=(x0, means, covs))
 
-    print(mpc.variables())
+    x, y, z = mpc.variables()
+    print("x:",x)
+    print("y:",y)
+    print("z:",z)
     print(mpc.optima())
