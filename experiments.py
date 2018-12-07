@@ -134,7 +134,7 @@ def run_real_ar_mpc(data, num_samples, num_assets, pred_params, control_params):
         control_inputs = (current_investments, control_inputs[0], control_inputs[1])
         mpm.run(control_inputs)
 
-        current_investments = mpm.apply_model_results(current_investments, mpm.variables())
+        current_investments = mpm.apply_model_results(current_investments)
         investment_strategies[t] = current_investments
 
     return predicted_returns, investment_strategies

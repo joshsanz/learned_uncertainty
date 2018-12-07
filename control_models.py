@@ -23,10 +23,10 @@ class ControlModel(object):
     def variables(self):
         pass
 
-    def get_input(self, past_data, ar_projections, ar_errors):
+    def get_input(self, L, past_data, ar_projections, ar_errors):
         pass
 
-    def apply_model_results(self, true_x, x, y, z):
+    def apply_model_results(self, true_x):
         pass
 
 
@@ -64,13 +64,16 @@ class NormModel(ControlModel):
     def variables(self):
         return self.x.value.flatten()
 
-    def get_input(self, past_data, ar_projections, ar_errors):
+    def get_input(self, L, past_data, ar_projections, ar_errors):
         return ar_projections[:,0], ar_errors[:,0]
 
-    def apply_model_results(self, true_x, x, y, z):
+    def apply_model_results(self, true_x):
         new_x = self.variables()
-        # return sell, buy tuple
-        return np.maximum(0, -(new_x - true_x)), np.maximum(0, (new_x - true_x))
+        updated_x = true_x.copy()
+        # modify updated_x with sell/buy changes.
+        sell, buy = np.maximum(0, -(new_x - true_x)), np.maximum(0, (new_x - true_x))
+        return updated_x
+
 
 class CovarianceModel(ControlModel):
 
@@ -105,13 +108,16 @@ class CovarianceModel(ControlModel):
     def variables(self):
         return self.x.value.flatten()
 
-    def get_input(self, past_data, ar_projections, ar_errors):
+    def get_input(self, L, past_data, ar_projections, ar_errors):
         return ar_projections[:,0], ar_errors[:,0]
 
-    def apply_model_results(self, true_x, x, y, z):
+    def apply_model_results(self, true_x):
         new_x = self.variables()
-        # return sell, buy tuple
-        return np.maximum(0, -(new_x - true_x)), np.maximum(0, (new_x - true_x))
+        updated_x = true_x.copy()
+        # modify updated_x with buy/sell changes.
+        sell, buy = np.maximum(0, -(new_x - true_x)), np.maximum(0, (new_x - true_x))
+        return updated_x
+
 
 
 class MultiPeriodModel(ControlModel):
@@ -177,9 +183,12 @@ class MultiPeriodModel(ControlModel):
 
         return projections, variances
 
-    def apply_model_results(self, true_x, x, y, z):
-        _, sell, buy = self.variables()
-        return sell[:-1, 0], buy[:-1, 0]
+    def apply_model_results(self, true_x):
+        updated_x = true_x.copy()
+        # modify updated_x with buy/sell changes.
+        _, sell_all, buy_all = self.variables()
+        sell, buy = sell_all[:-1, 0], buy_all[:-1, 0]
+        return updated_x
 
 
 class RobustMultiPeriodModel(ControlModel):
@@ -269,55 +278,12 @@ class RobustMultiPeriodModel(ControlModel):
 
         return projections, variances
 
-    def apply_model_results(self, true_x, x, y, z):
-        _, sell, buy = self.variables()
-        return sell[:-1, 0], buy[:-1, 0]
-
-
-# class MultiPeriodModelSimple(ControlModel):
-#     """
-#     Equation 1.5
-#     """
-#     def __init__(self, num_assets, L, mu, v):
-#         self.L = L # planning horizon
-#         self.mu = mu
-#         self.v = v
-#         self.num_assets = num_assets
-#         self.x = cvx.Variable((num_assets, L + 1))
-#         self.y = cvx.Variable((num_assets, L))
-#         self.z = cvx.Variable((num_assets, L))
-#         self.problem = None
-#         self._optima = None
-#
-#     def run(self, data):
-#         # TODO (hme): Finish imp.
-#         x0, r, _ = data
-#         assert r.shape == (self.num_assets, self.L + 1)
-#
-#         objective = cvx.Maximize(r[:, self.L].T * self.x[:, self.L])
-#         constraints = [
-#             self.x >= 0, self.z >= 0, self.y >= 0,
-#        ]
-#         for l in range(1, self.L + 1):
-#             for i in range(1, self.num_assets - 1):
-#                 # Equation 1.5
-#                 constraints += [
-#                     self.x[i, l] == r[i, l-1] @ self.x[i, l-1] - self.y[i, l] + self.z[i, l],
-#                 ]
-#         # self.x[n+1, l] <= self.x[:, l - 1] + A[:, l - 1].T @ self.y[:, l - 1] - B[:, l - 1] @ self.z[:, l - 1]
-#
-#         self.problem = cvx.Problem(objective, constraints)
-#         self._optima = self.problem.solve()
-#         print(self.problem.status)
-#
-#     def optima(self):
-#         return self._optima
-#
-#     def variables(self):
-#         x = self.x.value
-#         y = self.y.value
-#         z = self.z.value
-#         return x, y, z
+    def apply_model_results(self, true_x):
+        updated_x = true_x.copy()
+        # modify updated_x with buy/sell changes.
+        _, sell_all, buy_all = self.variables()
+        sell, buy = sell_all[:-1, 0], buy_all[:-1, 0]
+        return updated_x
 
 
 def main():
