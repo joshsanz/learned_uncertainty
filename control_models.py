@@ -86,7 +86,56 @@ class CovarianceModel(ControlModel):
 class MultiPeriodModel(ControlModel):
     """
     http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.116.559&rep=rep1&type=pdf
-    page 7
+    page 4
+    """
+    def __init__(self, num_assets, L, theta, nu):
+        self.L = L # planning horizon
+        self.theta = theta # safety margin on std dev
+        self.nu = nu # transaction cost
+        self.num_assets = num_assets
+        self.R = None
+        self.zeta = cvx.Variable((num_assets, L+1))
+        self.xi = cvx.Variable((num_assets, L))
+        self.eta = cvx.Variable((num_assets, L))
+        self.omega = cvx.Variable()
+        self.problem = None
+        self._optima = None
+
+    def run(self, data):
+        # x0 n x 1 initial state of portfolio,
+        # returns n x L expected return at each time step,
+        # sigmas n x n x L variance at each time step
+        x0, returns, _ = data
+        self.R = np.cumprod(returns, axis=1)
+        print("R:",self.R)
+        objective = cvx.Maximize(self.omega)
+        constraints = [self.omega <= self.R[:,self.L].T @ self.zeta[:,-1],
+                       self.zeta >= 0, self.xi >= 0, self.eta >= 0,
+                       self.zeta[:,0] == np.divide(x0, self.R[:,0])]
+        A = (1 - self.nu) * self.R
+        B = (1 + self.nu) * self.R
+        for l in range(1, self.L + 1):
+            # Equation 1.9
+            constraints += [0 == -self.zeta[:,l] + self.zeta[:,l-1] - self.eta[:,l-1] + self.xi[:,l-1],
+                            0 <= A[:,l-1].T @ self.eta[:,l-1] - B[:,l-1] @ self.xi[:,l-1]]
+        self.problem = cvx.Problem(objective, constraints)
+        self._optima = self.problem.solve()
+        print(self.problem.status)
+
+    def optima(self):
+        return self._optima
+
+    def variables(self):
+        zeta = self.zeta.value
+        eta = self.eta.value
+        xi = self.xi.value
+        R = self.R
+        return zeta * R, eta * R[:,1:], xi * R[:, 1:]
+
+class RobustMultiPeriodModel(ControlModel):
+    """
+    http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.116.559&rep=rep1&type=pdf
+    page 15
     """
     def __init__(self, num_assets, L, theta, nu):
         self.L = L # planning horizon
